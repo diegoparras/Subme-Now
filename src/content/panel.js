@@ -27,6 +27,12 @@
       <button class="sn-tab" data-tab="ai">✨ IA</button>
       <button class="sn-tab" data-tab="chat">💬 Chat</button>
     </nav>
+    <div class="sn-modelbar" data-ref="modelbar" hidden>
+      <select class="sn-select sn-mini" data-ref="provsel" title="Proveedor de IA"></select>
+      <input class="sn-input sn-mini sn-model" data-ref="modelin" list="sn-models" spellcheck="false" autocomplete="off" title="Modelo: escribe para buscar o elige de la lista">
+      <datalist id="sn-models" data-ref="modellist"></datalist>
+      <select class="sn-select sn-mini sn-rlang" data-ref="rlang" title="Idioma de las respuestas"></select>
+    </div>
 
     <section class="sn-pane" data-pane="transcript">
       <div class="sn-toolbar">
@@ -55,7 +61,6 @@
     </section>
 
     <section class="sn-pane" data-pane="ai" hidden>
-      <div class="sn-provider" data-ref="provider"></div>
       <div class="sn-notice" data-ref="nokey" hidden>
         Para usar la IA agrega una API key de OpenRouter, OpenAI, Grok, Anthropic o Gemini.
         <div style="margin-top:8px"><button class="sn-btn primary" data-act="settings">Configurar API</button></div>
@@ -81,7 +86,6 @@
     </section>
 
     <section class="sn-pane" data-pane="chat" hidden>
-      <div class="sn-provider" data-ref="provider2"></div>
       <div class="sn-chat-log" data-ref="chatlog"></div>
       <div class="sn-suggestions" data-ref="suggestions"></div>
       <form class="sn-chat-form" data-ref="chatform">
@@ -111,8 +115,10 @@
 
       this.bindEvents();
       this.watchTheme();
-      SubmeSettings.getSettings().then((s) => this.applySettings(s, true));
-      SubmeSettings.onSettingsChanged((s) => this.applySettings(s));
+      this.refreshSettings(true);
+      // La configuración se lee a través del service worker (las API keys nunca llegan a esta página).
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) this.refreshSettings(); });
+      window.addEventListener('focus', () => this.refreshSettings());
     }
 
     reset() {
@@ -134,7 +140,14 @@
 
     /* ---------- ciclo de vida ---------- */
 
-    mount() {
+    /** mode: 'watch' (columna lateral del video) | 'shorts' (panel flotante). */
+    mount(mode = 'watch') {
+      if (this.mode !== mode) { this.mode = mode; this.applyCollapsed(); }
+      this.host.setAttribute('data-mode', mode === 'shorts' ? 'float' : 'inline');
+      if (mode === 'shorts') {
+        if (this.host.parentElement !== document.body) document.body.appendChild(this.host);
+        return true;
+      }
       if (this.host.isConnected && this.host.parentElement?.closest('#secondary, #below')) return true;
       const target = document.querySelector('ytd-watch-flexy #secondary-inner')
         || document.querySelector('ytd-watch-flexy #secondary')
@@ -197,8 +210,18 @@
       }
     }
 
+    findVideoElement() {
+      if (this.mode === 'shorts') {
+        return document.querySelector('ytd-reel-video-renderer[is-active] video')
+          || document.querySelector('#shorts-player video')
+          || [...document.querySelectorAll('ytd-shorts video, video')].find((v) => v.offsetParent && !v.paused)
+          || document.querySelector('ytd-shorts video');
+      }
+      return document.querySelector('video.html5-main-video') || document.querySelector('#movie_player video');
+    }
+
     attachVideo() {
-      const v = document.querySelector('video.html5-main-video') || document.querySelector('#movie_player video');
+      const v = this.findVideoElement();
       if (!v || v === this.videoEl) return;
       this.videoEl?.removeEventListener('timeupdate', this.onTimeUpdate);
       this.videoEl = v;
@@ -216,14 +239,14 @@
     /* ---------- configuración y tema ---------- */
 
     applySettings(s, initial = false) {
-      const prevLang = this.settings.responseLanguage;
+      const prev = this.settings;
       this.settings = s;
       if (initial) {
-        this.root.classList.toggle('collapsed', !!s.panelCollapsed);
-        this.refs.body.hidden = !!s.panelCollapsed;
+        this.applyCollapsed();
         this.switchTab(s.defaultTab || 'transcript');
       }
-      if (prevLang !== s.responseLanguage) this.results.clear();
+      const sig = (x) => `${x.provider}|${x.providers?.[x.provider]?.model || ''}|${x.responseLanguage}`;
+      if (sig(prev) !== sig(s)) this.results.clear();
       this.shadow.querySelector('[data-act="ts"]').classList.toggle('on', !!s.showTimestamps);
       this.shadow.querySelector('[data-act="autoscroll"]').classList.toggle('on', !!s.autoScroll);
       this.renderProvider();
@@ -231,9 +254,37 @@
       if (this.segments.length) this.renderSegments();
     }
 
+    collapseKey() {
+      return this.mode === 'shorts' ? 'shortsCollapsed' : 'panelCollapsed';
+    }
+
+    applyCollapsed() {
+      const collapsed = !!this.settings[this.collapseKey()];
+      this.root.classList.toggle('collapsed', collapsed);
+      this.refs.body.hidden = collapsed;
+    }
+
+    async refreshSettings(initial = false) {
+      try {
+        const r = await chrome.runtime.sendMessage({ type: 'getPublicSettings' });
+        if (r?.ok) this.applySettings(SubmeSettings.merge(SubmeSettings.DEFAULT_SETTINGS, r.settings), initial);
+      } catch { /* extensión recargada: se ignora */ }
+    }
+
+    async updateSettings(patch, model) {
+      try {
+        const r = await chrome.runtime.sendMessage({ type: 'updateSettings', patch, model });
+        if (r?.ok) this.applySettings(SubmeSettings.merge(SubmeSettings.DEFAULT_SETTINGS, r.settings));
+        return r?.settings;
+      } catch {
+        this.toast('Recarga la página: la extensión se actualizó');
+        return null;
+      }
+    }
+
     patchSettings(patch) {
       this.settings = { ...this.settings, ...patch };
-      SubmeSettings.getSettings().then((s) => SubmeSettings.saveSettings({ ...s, ...patch }));
+      this.updateSettings(patch);
     }
 
     watchTheme() {
@@ -249,7 +300,7 @@
     hasKey() {
       const p = this.settings.provider;
       const cfg = this.settings.providers?.[p] || {};
-      return p === 'custom' ? !!cfg.baseUrl : !!cfg.apiKey;
+      return p === 'custom' ? !!cfg.baseUrl : !!cfg.hasKey;
     }
 
     /* ---------- eventos ---------- */
@@ -309,6 +360,15 @@
       this.refs.segments.addEventListener('wheel', () => { this.userScrollUntil = Date.now() + 4000; }, { passive: true });
       this.refs.segments.addEventListener('touchmove', () => { this.userScrollUntil = Date.now() + 4000; }, { passive: true });
 
+      this.refs.provsel.addEventListener('change', () => this.saveModelChoice({ provider: this.refs.provsel.value }));
+      this.refs.rlang.addEventListener('change', () => this.saveModelChoice({ responseLanguage: this.refs.rlang.value }));
+      this.refs.modelin.addEventListener('focus', () => { this.refs.modelin.select(); this.loadModelList(); });
+      this.refs.modelin.addEventListener('change', () => {
+        const model = this.refs.modelin.value.trim();
+        if (model !== (this.settings.providers?.[this.settings.provider]?.model || '')) this.saveModelChoice({ model });
+      });
+      this.refs.modelin.addEventListener('keydown', (e) => { if (e.key === 'Enter') this.refs.modelin.blur(); });
+
       this.refs.free.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.handleAct('free'); }
       });
@@ -320,6 +380,9 @@
       this.refs.chatinput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.sendChat(this.refs.chatinput.value); }
       });
+
+      // En Shorts, la rueda del mouse sobre el panel no debe pasar al siguiente Short.
+      this.host.addEventListener('wheel', (e) => { if (this.mode === 'shorts') e.stopPropagation(); }, { passive: true });
 
       // Evita que los atajos de teclado de YouTube (k, j, l, f, números…) se disparen al escribir.
       ['keydown', 'keyup', 'keypress'].forEach((t) => sh.addEventListener(t, (e) => {
@@ -333,7 +396,7 @@
           const collapsed = !this.root.classList.contains('collapsed');
           this.root.classList.toggle('collapsed', collapsed);
           this.refs.body.hidden = collapsed;
-          this.patchSettings({ panelCollapsed: collapsed });
+          this.patchSettings({ [this.collapseKey()]: collapsed });
           break;
         }
         case 'settings':
@@ -399,6 +462,7 @@
     switchTab(name) {
       this.shadow.querySelectorAll('[data-tab]').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
       this.shadow.querySelectorAll('[data-pane]').forEach((p) => { p.hidden = p.dataset.pane !== name; });
+      this.refs.modelbar.hidden = name === 'transcript';
       if (name === 'chat') { this.renderChat(); setTimeout(() => this.refs.chatinput.focus({ preventScroll: true }), 0); }
       if (name === 'transcript') this.highlightCurrent(true);
     }
@@ -435,6 +499,9 @@
       const sel = this.refs.lang;
       const info = this.video;
       let html = '';
+      if (this.source === 'dom') {
+        html += '<option value="">Transcripción de YouTube</option>';
+      }
       if (this.languages.length) {
         html += this.languages.map((l) => `<option value="it:${U.escapeHtml(l.params)}">${U.escapeHtml(l.title)}</option>`).join('');
       } else if (info?.tracks?.length) {
@@ -457,7 +524,7 @@
         }
       }
       sel.innerHTML = html;
-      if (this.selectedLang) sel.value = this.selectedLang;
+      sel.value = this.selectedLang || '';
     }
 
     renderSegments() {
@@ -524,12 +591,58 @@
     /* ---------- render: IA ---------- */
 
     renderProvider() {
-      const p = this.settings.provider;
-      const model = this.settings.providers?.[p]?.model || DEFAULT_MODELS[p] || '';
-      const html = `<span>Usando <b>${U.escapeHtml(PROVIDER_LABELS[p] || p)}</b>${model ? ` · <b>${U.escapeHtml(model)}</b>` : ''} · responde en ${U.escapeHtml(P.languageName(this.settings.responseLanguage).split(' (')[0])}</span><button class="sn-link" data-act="settings">Cambiar</button>`;
-      this.refs.provider.innerHTML = html;
-      this.refs.provider2.innerHTML = html;
+      const s = this.settings;
+      const p = s.provider;
+      const sel = this.refs.provsel;
+      if (!sel.options.length) {
+        this.refs.rlang.innerHTML = Object.entries(P.LANGUAGES)
+          .map(([code, name]) => `<option value="${code}">${U.escapeHtml(code === 'video' ? 'Idioma del video' : name.split(' (')[0].replace(/^./, (c) => c.toUpperCase()))}</option>`).join('');
+      }
+      sel.innerHTML = Object.entries(PROVIDER_LABELS).map(([id, label]) => {
+        const c = s.providers?.[id] || {};
+        const ok = id === 'custom' ? !!c.baseUrl : !!c.hasKey;
+        return `<option value="${id}">${U.escapeHtml(label)}${ok ? '' : ' (sin configurar)'}</option>`;
+      }).join('');
+      sel.value = p;
+      const input = this.refs.modelin;
+      if (this.shadow.activeElement !== input) {
+        input.value = s.providers?.[p]?.model || '';
+        input.placeholder = DEFAULT_MODELS[p] || 'modelo';
+      }
+      if (this.shadow.activeElement !== this.refs.rlang) this.refs.rlang.value = s.responseLanguage;
+      this.renderModelList();
       this.refs.nokey.hidden = this.hasKey();
+    }
+
+    renderModelList() {
+      const p = this.settings.provider;
+      const recent = this.settings.recentModels?.[p] || [];
+      const all = this.modelCache?.[p] || [];
+      const seen = new Set();
+      const opts = [DEFAULT_MODELS[p], ...recent, ...all].filter((m) => m && !seen.has(m) && seen.add(m));
+      this.refs.modellist.innerHTML = opts.map((m) => `<option value="${U.escapeHtml(m)}"></option>`).join('');
+    }
+
+    async loadModelList() {
+      const p = this.settings.provider;
+      this.modelCache = this.modelCache || {};
+      if (this.modelCache[p] || !this.hasKey() || this.loadingModels) return;
+      this.loadingModels = true;
+      try {
+        const r = await chrome.runtime.sendMessage({ type: 'listModels', providerId: p });
+        if (r?.ok) { this.modelCache[p] = r.models; this.renderModelList(); }
+      } catch { /* sin lista: se puede escribir el modelo a mano */ } finally {
+        this.loadingModels = false;
+      }
+    }
+
+    async saveModelChoice({ provider, model, responseLanguage }) {
+      const patch = {};
+      if (provider) patch.provider = provider;
+      if (responseLanguage) patch.responseLanguage = responseLanguage;
+      const s = await this.updateSettings(patch, model);
+      if (!s) return;
+      this.toast(provider ? `Proveedor: ${PROVIDER_LABELS[s.provider]}` : model !== undefined ? `Modelo: ${model || DEFAULT_MODELS[s.provider]}` : 'Idioma actualizado');
     }
 
     allActions() {
@@ -586,6 +699,7 @@
       const out = this.refs.output;
       this.refs.outwrap.hidden = false;
       this.refs.outtitle.textContent = `${action.icon || '✨'} ${action.label}`;
+      requestAnimationFrame(() => this.refs.outwrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
 
       if (!force && !action.noCache && this.results.has(action.id)) {
         out.innerHTML = MD.render(this.results.get(action.id));
@@ -602,6 +716,7 @@
         await this.ensureContext(progress);
         if (myToken !== this.loadToken || this.currentAction !== action) return;
         let pending = false;
+        let finished = false;
         this.stream = SN.ai.stream(
           { system: this.systemPrompt(), messages: [{ role: 'user', content: action.prompt }] },
           (_d, full) => {
@@ -609,11 +724,11 @@
             pending = true;
             requestAnimationFrame(() => {
               pending = false;
-              if (this.currentAction === action) out.innerHTML = MD.render(full) + '<div class="sn-progress"><span class="sn-spinner"></span></div>';
+              if (!finished && this.currentAction === action) out.innerHTML = MD.render(full) + '<div class="sn-progress"><span class="sn-spinner"></span></div>';
             });
           },
         );
-        const r = await this.stream.promise;
+        const r = await this.stream.promise.finally(() => { finished = true; });
         if (this.currentAction !== action) return;
         out.innerHTML = MD.render(r.text) + (r.notice ? `<div class="sn-foot-note">${U.escapeHtml(r.notice)}</div>` : '');
         this.lastOutput = r.text;

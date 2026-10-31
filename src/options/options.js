@@ -136,7 +136,7 @@
 
   const simple = {
     responseLanguage: 'value', maxOutputTokens: 'number', maxContextChars: 'number', transcriptLanguage: 'value', defaultTab: 'value',
-    showTimestamps: 'checked', autoScroll: 'checked', panelCollapsed: 'checked', autoSummary: 'checked',
+    showTimestamps: 'checked', autoScroll: 'checked', panelCollapsed: 'checked', shortsCollapsed: 'checked', autoSummary: 'checked',
   };
   function renderGeneral() {
     for (const [key, prop] of Object.entries(simple)) {

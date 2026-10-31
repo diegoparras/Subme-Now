@@ -4,6 +4,35 @@ importScripts('shared/settings.js', 'shared/providers.js');
 const { getSettings } = SubmeSettings;
 const P = SubmeProviders;
 
+// Seguridad: las API keys solo se pueden leer desde contextos de la extensión (service worker y
+// página de opciones). Los content scripts que corren dentro de YouTube no tienen acceso al storage.
+chrome.storage.local.setAccessLevel?.({ accessLevel: 'TRUSTED_CONTEXTS' })?.catch?.(() => {});
+
+/** Configuración sin secretos, para la página de YouTube. */
+function publicSettings(settings) {
+  const out = structuredClone(settings);
+  for (const [id, conf] of Object.entries(out.providers || {})) {
+    out.providers[id] = { ...conf, hasKey: !!conf.apiKey, apiKey: '' };
+  }
+  return out;
+}
+
+const CONTENT_WRITABLE = ['panelCollapsed', 'shortsCollapsed', 'showTimestamps', 'autoScroll', 'responseLanguage', 'provider'];
+
+async function updateFromContent({ patch = {}, model }) {
+  const s = await getSettings();
+  for (const k of CONTENT_WRITABLE) if (k in patch) s[k] = patch[k];
+  if (!P.PROVIDERS[s.provider]) s.provider = 'openrouter';
+  if (typeof model === 'string') {
+    const id = s.provider;
+    const m = model.trim().slice(0, 200);
+    s.providers[id] = { ...s.providers[id], model: m };
+    if (m) s.recentModels = { ...(s.recentModels || {}), [id]: [m, ...((s.recentModels || {})[id] || []).filter((x) => x !== m)].slice(0, 8) };
+  }
+  await SubmeSettings.saveSettings(s);
+  return publicSettings(s);
+}
+
 chrome.action.onClicked.addListener(() => chrome.runtime.openOptionsPage());
 
 chrome.runtime.onInstalled.addListener((details) => {
@@ -94,6 +123,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (msg.type === 'openOptions') {
         await chrome.runtime.openOptionsPage();
         return { ok: true };
+      }
+      if (msg.type === 'getPublicSettings') {
+        return { ok: true, settings: publicSettings(await getSettings()) };
+      }
+      if (msg.type === 'updateSettings') {
+        return { ok: true, settings: await updateFromContent(msg) };
       }
       if (msg.type === 'listModels') {
         const settings = await getSettings();

@@ -35,6 +35,15 @@
   --sn-hl: rgba(255, 196, 0, 0.30);
   --sn-danger: #ff6b5e;
 }
+/* Modo flotante (YouTube Shorts) */
+:host([data-mode="float"]) {
+  position: fixed; top: 72px; right: 16px; z-index: 2100; width: 380px; max-width: calc(100vw - 32px); margin: 0;
+}
+:host([data-mode="float"]) .sn-root { box-shadow: 0 10px 32px rgba(0,0,0,.28); }
+:host([data-mode="float"]) .sn-body { max-height: calc(100vh - 150px); overflow-y: auto; }
+:host([data-mode="float"]) .sn-segments, :host([data-mode="float"]) .sn-chat-log { max-height: 46vh; }
+:host([data-mode="float"]) .sn-output { max-height: none; }
+:host([data-mode="float"]) .sn-root.collapsed { width: max-content; margin-left: auto; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -117,6 +126,10 @@ button { cursor: pointer; }
 .sn-seg-text { flex: 1; }
 mark { background: var(--sn-hl); color: inherit; border-radius: 3px; padding: 0 1px; }
 
+.sn-modelbar { display: flex; gap: 6px; padding: 8px 12px 0; align-items: center; }
+.sn-mini { padding: 5px 8px; font-size: 12.5px; }
+.sn-modelbar .sn-select { flex: 0 1 auto; min-width: 0; max-width: 34%; }
+.sn-modelbar .sn-model { flex: 1 1 auto; min-width: 0; }
 .sn-provider { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--sn-fg-2); margin-bottom: 10px; }
 .sn-provider b { color: var(--sn-fg); font-weight: 500; }
 .sn-link { border: 0; background: none; color: var(--sn-accent); padding: 0; font-size: 12.5px; }

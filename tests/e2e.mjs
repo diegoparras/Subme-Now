@@ -113,6 +113,13 @@ try {
   check('Opciones: proveedor personalizado cargado', (await opts.inputValue('#baseUrl')) === API);
   const test = await opts.evaluate(() => chrome.runtime.sendMessage({ type: 'testProvider', providerId: 'custom' }));
   check('Probar conexión (streaming SSE)', test.ok && test.text === 'OK', JSON.stringify(test));
+  const pub = await opts.evaluate(async () => {
+    const { settings } = await chrome.storage.local.get('settings');
+    settings.providers.anthropic = { apiKey: 'sk-secreto-de-prueba', model: '' };
+    await chrome.storage.local.set({ settings });
+    return chrome.runtime.sendMessage({ type: 'getPublicSettings' });
+  });
+  check('Las API keys no se exponen a la página de YouTube', pub.ok && !JSON.stringify(pub).includes('sk-secreto') && pub.settings.providers.anthropic.hasKey === true);
   const models = await opts.evaluate(() => chrome.runtime.sendMessage({ type: 'listModels', providerId: 'custom' }));
   check('Listar modelos', models.ok && models.models.length === 2);
 
@@ -137,6 +144,23 @@ try {
   check('Panel insertado en #secondary', await page.evaluate(() => !!document.querySelector('#secondary-inner > #subme-now-host')));
 
   await page.locator('#subme-now-host .sn-seg').first().waitFor({ timeout: 10000 });
+
+  // El content script (que corre dentro de YouTube) no debe poder leer el storage con las claves.
+  const cdp = await context.newCDPSession(page);
+  const contexts = [];
+  cdp.on('Runtime.executionContextCreated', (e) => contexts.push(e.context));
+  await cdp.send('Runtime.enable');
+  await page.waitForTimeout(200);
+  const isolated = contexts.find((c) => c.auxData?.type === 'isolated' && c.origin?.startsWith('chrome-extension://'));
+  const leak = isolated ? await cdp.send('Runtime.evaluate', {
+    contextId: isolated.id,
+    awaitPromise: true,
+    returnByValue: true,
+    expression: "chrome.storage.local.get('settings').then((r) => JSON.stringify(r)).catch((e) => 'ERROR: ' + e.message)",
+  }) : null;
+  const leakValue = leak?.result?.value || '';
+  check('El content script no puede leer las API keys del storage', !!isolated && !leakValue.includes('sk-secreto'), leakValue.slice(0, 120));
+
   const segs = await page.locator('#subme-now-host .sn-seg').allInnerTexts();
   check('Transcripción cargada (3 segmentos)', segs.length === 3, segs.join(' | '));
 
@@ -179,6 +203,24 @@ try {
   await page.locator('#subme-now-host .sn-output a.sn-ts', { hasText: '00:08' }).click();
   check('Marca de tiempo de la IA es clicable', (await page.evaluate(() => document.querySelector('video').currentTime)) === 8);
 
+  // Cambio de modelo desde el panel
+  const bar = page.locator('#subme-now-host [data-ref="modelbar"]');
+  check('Barra de modelo visible en IA', await bar.isVisible());
+  check('Proveedor actual en el selector', (await page.locator('#subme-now-host [data-ref="provsel"]').inputValue()) === 'custom');
+  await page.locator('#subme-now-host [data-ref="modelin"]').click();
+  await page.waitForTimeout(300);
+  const listed = await page.evaluate(() => [...document.querySelector('#subme-now-host').shadowRoot.querySelectorAll('#sn-models option')].map((o) => o.value));
+  check('Lista de modelos cargada al enfocar', listed.includes('fake-model-2'), listed.join(','));
+  await page.locator('#subme-now-host [data-ref="modelin"]').fill('fake-model-2');
+  await page.locator('#subme-now-host [data-ref="modelin"]').press('Enter');
+  await page.waitForTimeout(300);
+  const saved = await opts.evaluate(async () => (await chrome.storage.local.get('settings')).settings);
+  check('Modelo guardado desde el panel', saved.providers.custom.model === 'fake-model-2' && saved.recentModels.custom[0] === 'fake-model-2');
+  await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'subme-e2e-modelbar.png'), clip: { x: 600, y: 0, width: 680, height: 420 } });
+  await page.locator('#subme-now-host [data-action="summary"]').click();
+  await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-output table'), null, { timeout: 10000 });
+  check('El nuevo modelo se usa en la consulta', requests.at(-1).model === 'fake-model-2');
+
   // Chat
   await page.locator('#subme-now-host [data-tab="chat"]').click();
   await page.locator('#subme-now-host [data-ref="chatinput"]').fill('¿De qué trata?');
@@ -194,6 +236,36 @@ try {
   await page.evaluate(() => { history.pushState({}, '', '/'); document.dispatchEvent(new Event('yt-navigate-finish')); });
   await page.waitForTimeout(300);
   check('Panel se oculta fuera de /watch', !(await page.evaluate(() => !!document.querySelector('#subme-now-host'))));
+
+  // YouTube Shorts: panel flotante
+  await page.evaluate(() => {
+    document.body.insertAdjacentHTML('beforeend', '<ytd-shorts><ytd-reel-video-renderer is-active><video id="short-video" width="300" height="500" muted></video></ytd-reel-video-renderer></ytd-shorts>');
+    history.pushState({}, '', '/shorts/SHORT123456');
+    document.dispatchEvent(new Event('yt-navigate-finish'));
+  });
+  await page.locator('#subme-now-host [data-tab="transcript"]').click();
+  await page.locator('#subme-now-host .sn-seg').first().waitFor({ timeout: 10000 });
+  const float = await page.evaluate(() => {
+    const h = document.querySelector('#subme-now-host');
+    return { parent: h.parentElement.tagName, mode: h.dataset.mode, position: getComputedStyle(h).position };
+  });
+  check('Shorts: panel flotante', float.parent === 'BODY' && float.mode === 'float' && float.position === 'fixed', JSON.stringify(float));
+  check('Shorts: transcripción cargada', (await page.locator('#subme-now-host .sn-seg').count()) === 3);
+  await page.locator('#subme-now-host .sn-seg').nth(1).click();
+  check('Shorts: clic salta en el video del Short', (await page.evaluate(() => document.querySelector('#short-video').currentTime)) === 4);
+  await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'subme-e2e-shorts.png') });
+  await page.locator('#subme-now-host [data-act="toggle"].sn-chevron').click();
+  check('Shorts: se puede contraer', await page.locator('#subme-now-host [data-ref="body"]').isHidden());
+  await page.locator('#subme-now-host [data-act="toggle"].sn-chevron').click();
+
+  // Volver a un video normal: el panel vuelve a la columna lateral
+  await page.evaluate(() => {
+    document.querySelector('ytd-shorts').remove();
+    history.pushState({}, '', '/watch?v=abc123XYZ00');
+    document.dispatchEvent(new Event('yt-navigate-finish'));
+  });
+  await page.waitForFunction(() => document.querySelector('#secondary-inner > #subme-now-host'), null, { timeout: 5000 });
+  check('De Shorts a video: panel vuelve a la columna', true);
 
   check('Sin errores en la consola', errors.length === 0, errors.join(' | '));
 } finally {

@@ -1,0 +1,6 @@
+{
+  "extName": { "message": "Subme Now: transcripción y resumen con IA para YouTube" },
+  "extShortName": { "message": "Subme Now" },
+  "extDescription": { "message": "Extrae subtítulos de videos y Shorts de YouTube y crea resúmenes, capítulos y quizzes con OpenAI, Claude, Gemini, Grok u OpenRouter." },
+  "actionTitle": { "message": "Subme Now: configuración" }
+}

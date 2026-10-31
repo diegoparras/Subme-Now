@@ -7,30 +7,35 @@
   let panel = null;
   let lastUrl = '';
 
-  function currentVideoId() {
-    if (location.pathname !== '/watch') return null;
-    return new URLSearchParams(location.search).get('v');
+  /** Devuelve {id, mode} para /watch?v=ID y /shorts/ID; null en otras páginas. */
+  function currentVideo() {
+    if (location.pathname === '/watch') {
+      const id = new URLSearchParams(location.search).get('v');
+      return id ? { id, mode: 'watch' } : null;
+    }
+    const m = location.pathname.match(/^\/shorts\/([\w-]{6,})/);
+    return m ? { id: m[1], mode: 'shorts' } : null;
   }
 
   function tick() {
-    const id = currentVideoId();
-    if (!id) {
+    const cur = currentVideo();
+    if (!cur) {
       if (panel?.host.isConnected) panel.unmount();
       if (panel) panel.videoId = null;
       lastUrl = location.href;
       return;
     }
     panel = panel || new SN.Panel();
-    if (!panel.mount()) return; // el layout aún no está listo; se reintenta
-    if (location.href !== lastUrl || panel.videoId !== id) {
+    if (!panel.mount(cur.mode)) return; // el layout aún no está listo; se reintenta
+    if (location.href !== lastUrl || panel.videoId !== cur.id) {
       lastUrl = location.href;
-      panel.loadVideo(id);
+      panel.loadVideo(cur.id);
     }
     panel.attachVideo();
   }
 
   document.addEventListener('yt-navigate-finish', () => setTimeout(tick, 50));
   window.addEventListener('popstate', () => setTimeout(tick, 50));
-  setInterval(tick, 1500);
+  setInterval(tick, 1000);
   tick();
 })();

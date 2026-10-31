@@ -17,9 +17,11 @@
     showTimestamps: true,
     autoScroll: true,
     panelCollapsed: false,
+    shortsCollapsed: false,
     autoSummary: false,
     defaultTab: 'transcript',
     customActions: [],
+    recentModels: {},
   };
 
   function merge(base, extra) {

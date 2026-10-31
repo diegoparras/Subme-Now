@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "Subme Now: AI transcript & summary for YouTube"
+  },
+  "extShortName": {
+    "message": "Subme Now"
+  },
+  "extDescription": {
+    "message": "Get YouTube video & Shorts transcripts and make AI summaries, chapters and quizzes with OpenAI, Claude, Gemini, Grok or OpenRouter."
+  },
+  "actionTitle": {
+    "message": "Subme Now: settings"
+  }
+}

@@ -112,7 +112,8 @@
       const body = {
         model: cfg.model,
         max_tokens: cfg.maxOutputTokens,
-        system,
+        // La transcripción va en el system prompt: se cachea para que el chat y las acciones siguientes sean más baratos.
+        system: system ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }] : undefined,
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
         stream: true,
       };

@@ -162,6 +162,56 @@
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+  /** Busca una petición de subtítulos del propio reproductor que ya incluya el token "pot". */
+  function findPlayerCaptionUrl(videoId) {
+    const entries = performance.getEntriesByType('resource').map((e) => e.name).reverse();
+    for (const name of entries) {
+      if (!name.includes('/api/timedtext')) continue;
+      try {
+        const u = new URL(name);
+        if (u.searchParams.get('pot') && (!videoId || u.searchParams.get('v') === videoId)) return u;
+      } catch { /* URL inválida */ }
+    }
+    return null;
+  }
+
+  /**
+   * YouTube exige un token de prueba de origen ("pot") en las pistas de subtítulos.
+   * Se obtiene activando un instante los subtítulos del reproductor y leyendo su petición.
+   */
+  async function getPlayerCaptionUrl(videoId) {
+    let u = findPlayerCaptionUrl(videoId);
+    if (u) return u;
+    const btn = document.querySelector('#movie_player .ytp-subtitles-button, .ytp-subtitles-button');
+    if (!btn || btn.offsetParent === null) return null;
+    const wasOn = btn.getAttribute('aria-pressed') === 'true';
+    if (wasOn) { btn.click(); await sleep(150); }
+    btn.click();
+    for (let i = 0; i < 20 && !u; i++) { await sleep(150); u = findPlayerCaptionUrl(videoId); }
+    if (!wasOn && btn.getAttribute('aria-pressed') === 'true') btn.click();
+    return u;
+  }
+
+  async function fetchTimedTextWithPot(info, track, tlang) {
+    const captured = await getPlayerCaptionUrl(info.videoId);
+    if (!captured) throw new Error('sin token del reproductor');
+    const u = new URL(track.baseUrl, 'https://www.youtube.com');
+    for (const k of ['pot', 'potc', 'c', 'cver', 'cplayer', 'cos', 'cosver', 'cbr', 'cbrver', 'xorb', 'xobt', 'xovt']) {
+      const v = captured.searchParams.get(k);
+      if (v !== null) u.searchParams.set(k, v);
+    }
+    return fetchTimedText({ baseUrl: u.toString() }, tlang);
+  }
+
+  async function fetchTimedTextAny(info, track, tlang) {
+    try {
+      return await fetchTimedText(track, tlang);
+    } catch (e) {
+      if (location.pathname !== '/watch') throw e;
+      return fetchTimedTextWithPot(info, track, tlang);
+    }
+  }
+
   /** Último recurso: abre el panel nativo "Mostrar transcripción" y lo lee. */
   async function fetchFromDom() {
     const SEG_SEL = 'ytd-transcript-segment-renderer, transcript-segment-view-model';
@@ -177,6 +227,11 @@
       if (!btn) throw new Error('Este video no tiene transcripción disponible.');
       btn.click();
       for (let i = 0; i < 40 && !segs.length; i++) { await sleep(250); segs = read(); }
+      // Cerrar el panel nativo que abrimos solo para leerlo.
+      const panel = document.querySelector('ytd-engagement-panel-section-list-renderer[target-id*="transcript"]');
+      const close = panel?.querySelector('#visibility-button button, button[aria-label*="Cerrar" i], button[aria-label*="Close" i]');
+      if (close) close.click();
+      else panel?.setAttribute('visibility', 'ENGAGEMENT_PANEL_VISIBILITY_HIDDEN');
     }
     if (!segs.length) throw new Error('No se pudo leer la transcripción del panel de YouTube.');
     return segs;
@@ -209,7 +264,7 @@
     if (choice?.kind === 'tt') {
       const track = info.tracks[choice.trackIndex];
       if (!track) throw new Error('Pista de subtítulos no encontrada.');
-      const segments = await fetchTimedText(track, choice.tlang);
+      const segments = await fetchTimedTextAny(info, track, choice.tlang);
       return { segments, source: 'timedtext', languages, selected: `tt:${choice.trackIndex}:${choice.tlang || ''}` };
     }
 
@@ -237,7 +292,7 @@
     const idx = pickTrack(info.tracks, preferredLanguage);
     if (idx >= 0) {
       try {
-        const segments = await fetchTimedText(info.tracks[idx]);
+        const segments = await fetchTimedTextAny(info, info.tracks[idx]);
         return { segments, source: 'timedtext', languages: [], selected: `tt:${idx}:` };
       } catch (e) { errors.push(e.message); }
     }

@@ -10,6 +10,7 @@ Sin servidores intermedios: la transcripción sale directo de YouTube y las cons
 
 ### 📜 Transcripción (gratis, sin API key)
 - Panel integrado a la derecha del video (respeta el modo claro/oscuro de YouTube).
+- **YouTube Shorts**: panel flotante con transcripción, IA y chat (se puede contraer).
 - Selector de idioma de subtítulos y **traducción automática de YouTube** a cualquier idioma.
 - **Clic en cualquier línea para saltar** a ese momento del video.
 - **Seguimiento en vivo**: resalta la línea que se está reproduciendo y hace scroll automático.
@@ -41,6 +42,7 @@ Además:
 - **💬 Chat con el video**: haz preguntas y la IA responde usando la transcripción.
 - **Prompt libre**: escribe cualquier pedido sobre el video.
 - **Acciones personalizadas**: crea tus propios botones con tu prompt desde la configuración.
+- **Cambio rápido de proveedor, modelo e idioma de respuesta desde el propio panel**, con la lista de modelos de tu cuenta y los usados recientemente.
 - Las respuestas se muestran **en streaming**, en Markdown, y **las marcas de tiempo son clicables** (saltan al momento del video).
 - Copiar o descargar cada resultado como `.md`, regenerar o detener.
 - Idioma de respuesta configurable (español, inglés, portugués, francés, alemán, italiano o el del video).
@@ -95,7 +97,8 @@ YouTube (página)                         Service worker                  Provee
 **Obtención de subtítulos** (`src/content/transcript.js`), en este orden:
 1. API interna de YouTube `youtubei/v1/get_transcript` (la misma del botón "Mostrar transcripción"), que también entrega la lista de idiomas.
 2. Pistas de subtítulos `timedtext` en formato `json3` (permite traducción automática).
-3. Como último recurso, abre y lee el panel de transcripción nativo de YouTube.
+3. Las mismas pistas con el token de verificación (`pot`) que usa el reproductor, capturado al activar un instante los subtítulos.
+4. Como último recurso, abre el panel de transcripción nativo de YouTube, lo lee y lo vuelve a cerrar.
 
 **IA** (`src/shared/providers.js` + `src/background.js`): las llamadas se hacen desde el service worker con streaming SSE. Cada proveedor tiene su adaptador (OpenAI-compatible, Anthropic Messages API, Gemini `streamGenerateContent`).
 
@@ -119,7 +122,12 @@ src/
     styles.js             # estilos (Shadow DOM)
     main.js               # detección de navegación SPA de YouTube
   options/                # página de configuración
+_locales/                 # nombre y descripción en español e inglés
 tests/e2e.mjs             # prueba end-to-end con Playwright (YouTube y API simulados)
+scripts/build.sh          # genera el .zip para la Chrome Web Store
+scripts/store-assets.mjs  # genera capturas e imágenes promocionales
+store/                    # textos de la ficha, imágenes y guía de publicación
+PRIVACY.md                # política de privacidad
 ```
 
 ### Pruebas
@@ -128,28 +136,29 @@ tests/e2e.mjs             # prueba end-to-end con Playwright (YouTube y API simu
 npm test
 ```
 
-Carga la extensión en Chromium, simula una página de YouTube y una API compatible con OpenAI, y verifica: carga de transcripción, cambio de idioma, búsqueda, salto en el video, descarga SRT, resumen con IA en streaming, marcas de tiempo clicables, chat y navegación SPA. Requiere Playwright con Chromium instalado.
+Carga la extensión en Chromium, simula una página de YouTube y una API compatible con OpenAI, y verifica: carga de transcripción, cambio de idioma, búsqueda, salto en el video, descarga SRT, resumen con IA en streaming, marcas de tiempo clicables, cambio de modelo desde el panel, chat, Shorts, navegación SPA y que las API keys no sean accesibles desde YouTube. Requiere Playwright con Chromium instalado.
 
-### Empaquetar
+### Publicar en la Chrome Web Store
 
 ```bash
-npm run zip
+npm run build
 ```
 
-Genera `subme-now.zip` listo para subir a la Chrome Web Store.
+Genera `dist/subme-now-<versión>.zip`. Los textos de la ficha están en [`store/FICHA-TIENDA.md`](store/FICHA-TIENDA.md), las imágenes en `store/` y el paso a paso (permisos, privacidad, distribución) en [`store/GUIA-PUBLICACION.md`](store/GUIA-PUBLICACION.md).
 
 ---
 
 ## Privacidad
 
 - No hay servidores propios ni analíticas.
-- Las API keys se guardan en `chrome.storage.local` (no se sincronizan con tu cuenta de Google).
+- Las API keys se guardan en `chrome.storage.local` (no se sincronizan con tu cuenta de Google) con acceso restringido a la propia extensión: el código que corre dentro de YouTube no puede leerlas, y las llamadas a la IA se hacen desde el service worker.
+- Política completa: [PRIVACY.md](PRIVACY.md).
 - Solo se envía la transcripción al proveedor de IA cuando haces clic en una acción o en el chat (o si activas el resumen automático).
 - Permisos: `storage` y acceso a los dominios de las APIs de IA. Para un proveedor personalizado se pide permiso solo para su dominio.
 
 ## Ideas para próximas versiones
 
-- Soporte para YouTube Shorts y videos embebidos.
+- Soporte para videos embebidos en otros sitios.
 - Exportar resultados a Notion, Google Docs u Obsidian.
 - Historial de resúmenes guardados por video.
 - Comparar o resumir varios videos (por ejemplo, una playlist completa).
