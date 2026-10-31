@@ -114,6 +114,7 @@ src/
     prompts.js            # acciones de IA y system prompt
     markdown.js           # renderizador Markdown seguro (con marcas de tiempo clicables)
     settings.js           # configuración en chrome.storage.local
+    vault.js              # cifrado opcional de las API keys con contraseña
     utils.js              # formatos de exportación (TXT, SRT, VTT, MD), tiempos, etc.
   content/
     transcript.js         # extracción de subtítulos
@@ -122,6 +123,7 @@ src/
     styles.js             # estilos (Shadow DOM)
     main.js               # detección de navegación SPA de YouTube
   options/                # página de configuración
+  unlock/                 # ventana para desbloquear las claves
 _locales/                 # nombre y descripción en español e inglés
 tests/e2e.mjs             # prueba end-to-end con Playwright (YouTube y API simulados)
 scripts/build.sh          # genera el .zip para la Chrome Web Store
@@ -136,7 +138,7 @@ PRIVACY.md                # política de privacidad
 npm test
 ```
 
-Carga la extensión en Chromium, simula una página de YouTube y una API compatible con OpenAI, y verifica: carga de transcripción, cambio de idioma, búsqueda, salto en el video, descarga SRT, resumen con IA en streaming, marcas de tiempo clicables, cambio de modelo desde el panel, chat, Shorts, navegación SPA y que las API keys no sean accesibles desde YouTube. Requiere Playwright con Chromium instalado.
+Carga la extensión en Chromium, simula una página de YouTube y una API compatible con OpenAI, y verifica: carga de transcripción, cambio de idioma, búsqueda, salto en el video, descarga SRT, resumen con IA en streaming, marcas de tiempo clicables, cambio de modelo desde el panel, chat, Shorts, navegación SPA, que las API keys no sean accesibles desde YouTube y el flujo completo de protección con contraseña. Requiere Playwright con Chromium instalado.
 
 ### Publicar en la Chrome Web Store
 
@@ -152,6 +154,7 @@ Genera `dist/subme-now-<versión>.zip`. Los textos de la ficha están en [`store
 
 - No hay servidores propios ni analíticas.
 - Las API keys se guardan en `chrome.storage.local` (no se sincronizan con tu cuenta de Google) con acceso restringido a la propia extensión: el código que corre dentro de YouTube no puede leerlas, y las llamadas a la IA se hacen desde el service worker.
+- **Protección opcional con contraseña** (Configuración → Seguridad): las claves se cifran con AES-GCM 256 y una clave derivada de tu contraseña (PBKDF2-SHA256, 600.000 iteraciones). En disco solo queda el texto cifrado. Se desbloquean en una ventana propia de la extensión, nunca dentro de YouTube, y permanecen en memoria hasta cerrar el navegador o tras el tiempo de inactividad que elijas.
 - Política completa: [PRIVACY.md](PRIVACY.md).
 - Solo se envía la transcripción al proveedor de IA cuando haces clic en una acción o en el chat (o si activas el resumen automático).
 - Permisos: `storage` y acceso a los dominios de las APIs de IA. Para un proveedor personalizado se pide permiso solo para su dominio.

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subme Now — Desbloquear</title>
+  <link rel="stylesheet" href="../options/options.css">
+  <style>
+    body { display: grid; place-items: center; min-height: 100vh; }
+    .box { width: 100%; max-width: 360px; padding: 20px; }
+    .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .brand h1 { font-size: 18px; margin: 0; }
+    .msg { min-height: 20px; font-size: 13px; margin-top: 10px; }
+    .msg.err { color: var(--danger); }
+    .msg.ok { color: var(--ok); }
+    .btn.primary { width: 100%; margin-top: 10px; padding: 10px; }
+    .links { margin-top: 12px; font-size: 13px; text-align: center; }
+    .links a { color: var(--accent); cursor: pointer; }
+  </style>
+</head>
+<body>
+  <form class="box card" id="form">
+    <div class="brand"><img src="../../icons/icon48.png" width="32" height="32" alt=""><h1>🔒 Desbloquear API keys</h1></div>
+    <p class="muted">Escribe tu contraseña de Subme Now para usar la IA. Las claves quedarán disponibles hasta que cierres el navegador o se bloqueen por inactividad.</p>
+    <input type="password" id="password" placeholder="Contraseña" autocomplete="current-password" autofocus required>
+    <button class="btn primary" type="submit" id="submit">Desbloquear</button>
+    <div class="msg" id="msg" aria-live="polite"></div>
+    <div class="links"><a id="forgot">¿Olvidaste la contraseña?</a></div>
+  </form>
+  <script src="../shared/vault.js"></script>
+  <script src="unlock.js"></script>
+</body>
+</html>

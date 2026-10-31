@@ -6,6 +6,13 @@
 
   let settings = await getSettings();
   let saveTimer = null;
+  let vault = await SubmeVault.status();
+  let vaultKeys = vault.enabled && !vault.locked ? { ...((await SubmeVault.getSession())?.keys || {}) } : null;
+  let vaultTimer = null;
+
+  /** API key del proveedor (de la bóveda si la protección está activa). */
+  const keyOf = (id) => (vault.enabled ? (vaultKeys?.[id] || '') : (settings.providers[id]?.apiKey || ''));
+  const hasKey = (id) => (vault.enabled ? !!(vaultKeys ? vaultKeys[id] : vault.hasKey[id]) : !!settings.providers[id]?.apiKey);
 
   function save(immediate = false) {
     clearTimeout(saveTimer);
@@ -25,7 +32,7 @@
     $('providers').innerHTML = '';
     for (const p of Object.values(PROVIDERS)) {
       const conf = settings.providers[p.id] || {};
-      const configured = p.id === 'custom' ? !!conf.baseUrl : !!conf.apiKey;
+      const configured = p.id === 'custom' ? !!conf.baseUrl : hasKey(p.id);
       const b = document.createElement('button');
       b.type = 'button';
       b.className = `provider${settings.provider === p.id ? ' active' : ''}`;
@@ -49,8 +56,12 @@
     $('providerHint').textContent = p.hint;
     $('baseUrlField').hidden = p.id !== 'custom';
     $('baseUrl').value = conf.baseUrl || '';
-    $('apiKey').value = conf.apiKey || '';
-    $('apiKey').placeholder = p.id === 'custom' ? 'Opcional para servidores locales' : 'Pega aquí tu clave';
+    const lockedKeys = vault.enabled && vault.locked;
+    $('apiKey').value = lockedKeys ? '' : keyOf(p.id);
+    $('apiKey').disabled = lockedKeys;
+    $('apiKey').placeholder = lockedKeys
+      ? `🔒 ${hasKey(p.id) ? 'Guardada y bloqueada' : 'Bloqueada'}: desbloquea en "Seguridad"`
+      : p.id === 'custom' ? 'Opcional para servidores locales' : 'Pega aquí tu clave';
     $('keyLink').hidden = !p.keyUrl;
     $('keyLink').href = p.keyUrl || '#';
     $('model').value = conf.model || '';
@@ -66,7 +77,23 @@
     save();
     renderProviders();
   });
-  bindProviderInput('apiKey', 'apiKey');
+  $('apiKey').addEventListener('input', () => {
+    const value = $('apiKey').value.trim();
+    if (vault.enabled) {
+      if (!vaultKeys) return;
+      vaultKeys[settings.provider] = value;
+      clearTimeout(vaultTimer);
+      vaultTimer = setTimeout(async () => {
+        await SubmeVault.saveKeys(vaultKeys);
+        $('saved').textContent = 'Guardado y cifrado ✓';
+        setTimeout(() => { $('saved').textContent = ''; }, 1500);
+      }, 350);
+    } else {
+      settings.providers[settings.provider].apiKey = value;
+      save();
+    }
+    renderProviders();
+  });
   bindProviderInput('model', 'model');
   bindProviderInput('baseUrl', 'baseUrl');
 
@@ -199,11 +226,108 @@
   $('reset').addEventListener('click', async () => {
     if (!confirm('¿Borrar toda la configuración, incluidas las API keys?')) return;
     settings = structuredClone(DEFAULT_SETTINGS);
+    await SubmeVault.reset();
+    vault = await SubmeVault.status();
+    vaultKeys = null;
     await save(true);
     renderAll();
   });
 
+  /* ---------- seguridad: contraseña ---------- */
+
+  const AUTOLOCK = [[0, 'Al cerrar el navegador'], [15, 'Tras 15 min sin uso'], [60, 'Tras 1 hora sin uso'], [240, 'Tras 4 horas sin uso']];
+  const autolockSelect = (value) => `<select id="vAutolock">${AUTOLOCK.map(([v, l]) => `<option value="${v}"${Number(value) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+  const secMsg = (text, ok = false) => { const el = $('vMsg'); if (el) { el.textContent = text; el.className = `test-result ${ok ? 'ok' : 'err'}`; } };
+
+  async function refreshVault() {
+    vault = await SubmeVault.status();
+    vaultKeys = vault.enabled && !vault.locked ? { ...((await SubmeVault.getSession())?.keys || {}) } : null;
+    renderAll();
+  }
+
+  function plainKeys() {
+    return Object.fromEntries(Object.keys(PROVIDERS).map((id) => [id, settings.providers[id]?.apiKey || '']).filter(([, v]) => v));
+  }
+
+  function renderSecurity() {
+    const box = $('securityBody');
+    if (!vault.enabled) {
+      box.innerHTML = `
+        <p class="muted">Cifra tus API keys con una contraseña. Si alguien copia tu perfil de Chrome, solo verá datos cifrados. Para usar la IA tendrás que desbloquearlas (una vez por sesión del navegador).</p>
+        <div class="grid2">
+          <label class="field"><span>Contraseña (mín. 8 caracteres)</span><input type="password" id="vPass" autocomplete="new-password"></label>
+          <label class="field"><span>Repetir contraseña</span><input type="password" id="vPass2" autocomplete="new-password"></label>
+          <label class="field"><span>Bloquear automáticamente</span>${autolockSelect(0)}</label>
+        </div>
+        <div class="row"><button type="button" class="btn primary" id="vEnable">Activar protección</button><span id="vMsg" class="test-result"></span></div>
+        <p class="muted"><small>⚠ Si olvidas la contraseña no hay forma de recuperarla: tendrás que volver a pegar tus claves.</small></p>`;
+      $('vEnable').addEventListener('click', async () => {
+        if ($('vPass').value !== $('vPass2').value) return secMsg('Las contraseñas no coinciden.');
+        try {
+          secMsg('Cifrando…', true);
+          await SubmeVault.enable($('vPass').value, plainKeys(), $('vAutolock').value);
+          for (const id of Object.keys(settings.providers)) settings.providers[id].apiKey = '';
+          await save(true);
+          await refreshVault();
+          secMsg('Protección activada ✓', true);
+        } catch (e) { secMsg(e.message); }
+      });
+      return;
+    }
+    if (vault.locked) {
+      box.innerHTML = `
+        <p><b>🔒 Claves cifradas y bloqueadas.</b></p>
+        <div class="row"><input type="password" id="vPass" placeholder="Contraseña" autocomplete="current-password"><button type="button" class="btn primary" id="vUnlock">Desbloquear</button></div>
+        <div class="row" style="margin-top:8px"><span id="vMsg" class="test-result"></span></div>
+        <p class="muted"><button type="button" class="btn danger" id="vForgot">Olvidé la contraseña</button></p>`;
+      const doUnlock = async () => {
+        try { secMsg('Verificando…', true); await SubmeVault.unlock($('vPass').value); await refreshVault(); secMsg('Desbloqueadas ✓', true); } catch (e) { secMsg(e.message); }
+      };
+      $('vUnlock').addEventListener('click', doUnlock);
+      $('vPass').addEventListener('keydown', (e) => { if (e.key === 'Enter') doUnlock(); });
+      $('vForgot').addEventListener('click', async () => {
+        if (!confirm('Se borrarán tus API keys cifradas y tendrás que volver a pegarlas. ¿Continuar?')) return;
+        await SubmeVault.reset();
+        await refreshVault();
+      });
+      return;
+    }
+    box.innerHTML = `
+      <p><b>🔓 Claves cifradas y desbloqueadas</b> <span class="muted">(se bloquean al cerrar el navegador${vault.autoLockMinutes ? ` o tras ${vault.autoLockMinutes} min sin uso` : ''}).</span></p>
+      <div class="row"><button type="button" class="btn" id="vLock">🔒 Bloquear ahora</button><label class="row" style="flex:1">${autolockSelect(vault.autoLockMinutes)}</label></div>
+      <div class="grid2" style="margin-top:8px">
+        <label class="field"><span>Nueva contraseña</span><input type="password" id="vPass" autocomplete="new-password"></label>
+        <label class="field"><span>Repetir nueva contraseña</span><input type="password" id="vPass2" autocomplete="new-password"></label>
+      </div>
+      <div class="row"><button type="button" class="btn" id="vChange">Cambiar contraseña</button><button type="button" class="btn danger" id="vDisable">Desactivar protección</button><span id="vMsg" class="test-result"></span></div>`;
+    $('vLock').addEventListener('click', async () => { await SubmeVault.lock(); await refreshVault(); });
+    $('vAutolock').addEventListener('change', async () => { await SubmeVault.setAutoLock($('vAutolock').value); vault = await SubmeVault.status(); secMsg('Guardado ✓', true); });
+    $('vChange').addEventListener('click', async () => {
+      if ($('vPass').value !== $('vPass2').value) return secMsg('Las contraseñas no coinciden.');
+      try { await SubmeVault.changePassword($('vPass').value); $('vPass').value = ''; $('vPass2').value = ''; secMsg('Contraseña cambiada ✓', true); } catch (e) { secMsg(e.message); }
+    });
+    $('vDisable').addEventListener('click', async () => {
+      if (!confirm('Las API keys volverán a guardarse sin cifrar en este navegador. ¿Continuar?')) return;
+      const keys = await SubmeVault.disable();
+      for (const [id, key] of Object.entries(keys)) settings.providers[id] = { ...settings.providers[id], apiKey: key };
+      await save(true);
+      await refreshVault();
+    });
+  }
+
+  // Si la bóveda se bloquea o desbloquea desde otra ventana, actualizar la vista.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if ((area === 'session' && changes.unlocked) || (area === 'local' && changes.vault)) {
+      clearTimeout(refreshVault.t);
+      refreshVault.t = setTimeout(async () => {
+        const st = await SubmeVault.status();
+        if (st.enabled !== vault.enabled || st.locked !== vault.locked) refreshVault();
+      }, 100);
+    }
+  });
+
   function renderAll() {
+    renderSecurity();
     renderProviders();
     renderProviderForm();
     renderGeneral();

@@ -232,6 +232,57 @@ try {
   await page.locator('#subme-now-host [data-tab="ai"]').click();
   await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'subme-e2e.png') });
 
+  // Protección con contraseña
+  await opts.reload();
+  await opts.waitForSelector('#vEnable');
+  await opts.fill('#vPass', 'contraseña-segura-1');
+  await opts.fill('#vPass2', 'contraseña-segura-1');
+  await opts.click('#vEnable');
+  await opts.waitForSelector('#vLock', { timeout: 15000 });
+  const stored = await opts.evaluate(async () => JSON.stringify(await chrome.storage.local.get(null)));
+  check('Contraseña: claves cifradas en disco (sin texto plano)', !stored.includes('sk-secreto') && stored.includes('"vault"'));
+  await opts.click('#vLock');
+  await opts.waitForSelector('#vUnlock');
+  check('Contraseña: campo de API key deshabilitado al bloquear', await opts.isDisabled('#apiKey'));
+
+  await page.bringToFront();
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page.locator('#subme-now-host [data-tab="ai"]').click();
+  await page.locator('#subme-now-host [data-ref="lockbtn"]').waitFor({ state: 'visible', timeout: 5000 });
+  check('Contraseña: el panel muestra el candado', true);
+  const before = requests.length;
+  await page.locator('#subme-now-host [data-action="quiz"]').click();
+  await page.locator('#subme-now-host .sn-output [data-act="unlock"]').waitFor({ timeout: 10000 });
+  check('Contraseña: bloqueado no llama a la IA y ofrece desbloquear', requests.length === before);
+
+  const [popup] = await Promise.all([
+    context.waitForEvent('page'),
+    page.locator('#subme-now-host .sn-output [data-act="unlock"]').click(),
+  ]);
+  await popup.waitForSelector('#password');
+  await popup.fill('#password', 'incorrecta-123');
+  await popup.click('#submit');
+  await popup.waitForFunction(() => document.querySelector('#msg').textContent.includes('incorrecta'), null, { timeout: 15000 });
+  check('Contraseña: rechaza una contraseña incorrecta', true);
+  await popup.fill('#password', 'contraseña-segura-1');
+  await Promise.all([popup.waitForEvent('close', { timeout: 15000 }), popup.click('#submit')]);
+  check('Contraseña: desbloqueo desde la ventana', true);
+
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page.locator('#subme-now-host [data-action="quiz"]').click();
+  await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-output table'), null, { timeout: 10000 });
+  check('Contraseña: desbloqueado, la IA funciona', requests.length === before + 1);
+  check('Contraseña: candado oculto tras desbloquear', await page.locator('#subme-now-host [data-ref="lockbtn"]').isHidden());
+  const sessionKeys = await opts.evaluate(async () => (await SubmeVault.getSession())?.keys);
+  check('Contraseña: la clave original se recupera intacta', sessionKeys?.anthropic === 'sk-secreto-de-prueba');
+  await opts.reload();
+  await opts.waitForSelector('#vDisable');
+  opts.once('dialog', (d) => d.accept());
+  await opts.click('#vDisable');
+  await opts.waitForSelector('#vEnable');
+  const plain = await opts.evaluate(async () => (await chrome.storage.local.get(['settings', 'vault'])));
+  check('Contraseña: desactivar restaura las claves', plain.settings.providers.anthropic.apiKey === 'sk-secreto-de-prueba' && !plain.vault);
+
   // Navegación SPA a otra página
   await page.evaluate(() => { history.pushState({}, '', '/'); document.dispatchEvent(new Event('yt-navigate-finish')); });
   await page.waitForTimeout(300);

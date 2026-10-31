@@ -32,6 +32,7 @@
       <input class="sn-input sn-mini sn-model" data-ref="modelin" list="sn-models" spellcheck="false" autocomplete="off" title="Modelo: escribe para buscar o elige de la lista">
       <datalist id="sn-models" data-ref="modellist"></datalist>
       <select class="sn-select sn-mini sn-rlang" data-ref="rlang" title="Idioma de las respuestas"></select>
+      <button class="sn-icon-btn sn-lock" data-act="unlock" data-ref="lockbtn" title="API keys bloqueadas: clic para desbloquear" hidden>🔒</button>
     </div>
 
     <section class="sn-pane" data-pane="transcript">
@@ -450,6 +451,9 @@
           this.currentAction = null;
           this.renderActions();
           break;
+        case 'unlock':
+          try { chrome.runtime.sendMessage({ type: 'openUnlock' }); } catch { this.toast('Recarga la página: la extensión se actualizó'); }
+          break;
         case 'chatclear':
           this.abortAll();
           this.chat = [];
@@ -612,6 +616,16 @@
       if (this.shadow.activeElement !== this.refs.rlang) this.refs.rlang.value = s.responseLanguage;
       this.renderModelList();
       this.refs.nokey.hidden = this.hasKey();
+      this.refs.lockbtn.hidden = !this.isLocked();
+    }
+
+    isLocked() {
+      return !!this.settings.vault?.locked;
+    }
+
+    lockedHtml(message) {
+      return `<div class="sn-notice">🔒 ${U.escapeHtml(message || 'Tus API keys están protegidas con contraseña.')}
+        <div style="margin-top:8px"><button class="sn-btn primary" data-act="unlock">Desbloquear</button></div></div>`;
     }
 
     renderModelList() {
@@ -736,7 +750,9 @@
         this.renderActions();
       } catch (e) {
         if (this.currentAction === action) {
-          out.innerHTML = e.aborted ? '<div class="sn-foot-note">Generación detenida.</div>' : `<div class="sn-error">⚠ ${U.escapeHtml(e.message)}</div>`;
+          if (e.code === 'LOCKED') this.refreshSettings();
+          out.innerHTML = e.aborted ? '<div class="sn-foot-note">Generación detenida.</div>'
+            : e.code === 'LOCKED' ? this.lockedHtml(e.message) : `<div class="sn-error">⚠ ${U.escapeHtml(e.message)}</div>`;
         }
       } finally {
         if (this.currentAction === action) stopBtn.hidden = true;
@@ -753,7 +769,7 @@
       } else {
         log.innerHTML = this.chat.map((m) => (m.role === 'user'
           ? `<div class="sn-msg user">${U.escapeHtml(m.content)}</div>`
-          : `<div class="sn-msg assistant md">${m.error ? `<div class="sn-error">⚠ ${U.escapeHtml(m.error)}</div>` : MD.render(m.content) || '<div class="sn-progress"><span class="sn-spinner"></span>Pensando…</div>'}</div>`)).join('');
+          : `<div class="sn-msg assistant md">${m.locked ? this.lockedHtml(m.error) : m.error ? `<div class="sn-error">⚠ ${U.escapeHtml(m.error)}</div>` : MD.render(m.content) || '<div class="sn-progress"><span class="sn-spinner"></span>Pensando…</div>'}</div>`)).join('');
         this.refs.suggestions.innerHTML = '';
       }
       log.scrollTop = log.scrollHeight;
@@ -791,6 +807,8 @@
         reply.content = r.text || (r.aborted ? '_Respuesta detenida._' : '');
       } catch (e) {
         reply.error = e.message;
+        reply.locked = e.code === 'LOCKED';
+        if (reply.locked) this.refreshSettings();
         const idx = this.chat.indexOf(reply);
         if (idx > 0 && !reply.content) this.chat[idx - 1].error = true; // no reenviar la pregunta fallida como historial
       } finally {

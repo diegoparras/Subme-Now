@@ -1,5 +1,5 @@
 /* Subme Now — service worker: realiza las llamadas a las APIs de IA (evita CORS y mantiene las claves fuera de la página). */
-importScripts('shared/settings.js', 'shared/providers.js');
+importScripts('shared/settings.js', 'shared/providers.js', 'shared/vault.js');
 
 const { getSettings } = SubmeSettings;
 const P = SubmeProviders;
@@ -9,12 +9,36 @@ const P = SubmeProviders;
 chrome.storage.local.setAccessLevel?.({ accessLevel: 'TRUSTED_CONTEXTS' })?.catch?.(() => {});
 
 /** Configuración sin secretos, para la página de YouTube. */
-function publicSettings(settings) {
+async function publicSettings(settings) {
   const out = structuredClone(settings);
+  const vault = await SubmeVault.status();
   for (const [id, conf] of Object.entries(out.providers || {})) {
-    out.providers[id] = { ...conf, hasKey: !!conf.apiKey, apiKey: '' };
+    const hasKey = vault.enabled ? !!vault.hasKey[id] : !!conf.apiKey;
+    out.providers[id] = { ...conf, hasKey, apiKey: '' };
   }
+  out.vault = { enabled: vault.enabled, locked: vault.locked };
   return out;
+}
+
+/**
+ * Configuración con las API keys, solo para uso interno del service worker.
+ * Si las claves están protegidas con contraseña y bloqueadas, lanza un error con code 'LOCKED'.
+ */
+async function settingsWithKeys() {
+  const settings = await getSettings();
+  if (!(await SubmeVault.isEnabled())) return settings;
+  const session = await SubmeVault.touch();
+  if (!session) {
+    throw Object.assign(new Error('Tus API keys están protegidas con contraseña. Desbloquéalas para usar la IA.'), { code: 'LOCKED' });
+  }
+  for (const [id, key] of Object.entries(session.keys || {})) {
+    settings.providers[id] = { ...settings.providers[id], apiKey: key };
+  }
+  return settings;
+}
+
+function openUnlockWindow() {
+  return chrome.windows.create({ url: chrome.runtime.getURL('src/unlock/unlock.html'), type: 'popup', width: 420, height: 380, focused: true });
 }
 
 const CONTENT_WRITABLE = ['panelCollapsed', 'shortsCollapsed', 'showTimestamps', 'autoScroll', 'responseLanguage', 'provider'];
@@ -75,7 +99,7 @@ async function readSSE(response, onEvent) {
 }
 
 async function runChat({ system, messages, providerId }, signal, onText) {
-  const settings = await getSettings();
+  const settings = await settingsWithKeys();
   const cfg = P.resolveConfig(settings, providerId);
   P.validateConfig(cfg);
   const { url, init } = P.buildChatRequest(cfg, { system, messages });
@@ -112,7 +136,7 @@ chrome.runtime.onConnect.addListener((port) => {
       const meta = await runChat(msg.payload, controller.signal, (text) => post({ type: 'delta', text }));
       post({ type: 'done', ...meta });
     } catch (e) {
-      if (e.name !== 'AbortError') post({ type: 'error', message: e.message || String(e) });
+      if (e.name !== 'AbortError') post({ type: 'error', message: e.message || String(e), code: e.code });
     }
   });
 });
@@ -125,13 +149,21 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return { ok: true };
       }
       if (msg.type === 'getPublicSettings') {
-        return { ok: true, settings: publicSettings(await getSettings()) };
+        return { ok: true, settings: await publicSettings(await getSettings()) };
       }
       if (msg.type === 'updateSettings') {
         return { ok: true, settings: await updateFromContent(msg) };
       }
+      if (msg.type === 'openUnlock') {
+        await openUnlockWindow();
+        return { ok: true };
+      }
+      if (msg.type === 'lockKeys') {
+        await SubmeVault.lock();
+        return { ok: true };
+      }
       if (msg.type === 'listModels') {
-        const settings = await getSettings();
+        const settings = await settingsWithKeys();
         const cfg = P.resolveConfig(settings, msg.providerId);
         if (!cfg.baseUrl) throw new Error('Falta la URL base.');
         const { url, init } = P.buildModelsRequest(cfg);
@@ -157,7 +189,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
       return { ok: false, error: 'Mensaje desconocido' };
     } catch (e) {
-      return { ok: false, error: e.name === 'AbortError' ? 'Tiempo de espera agotado.' : e.message || String(e) };
+      return { ok: false, code: e.code, error: e.name === 'AbortError' ? 'Tiempo de espera agotado.' : e.message || String(e) };
     }
   })().then(sendResponse);
   return true;

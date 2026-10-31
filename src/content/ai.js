@@ -36,7 +36,7 @@
       port.onMessage.addListener((m) => {
         if (m.type === 'delta') { full += m.text; onDelta?.(m.text, full); }
         else if (m.type === 'done') finish(null, { text: full, notice: m.notice || '', model: m.model, provider: m.provider });
-        else if (m.type === 'error') finish(new Error(m.message));
+        else if (m.type === 'error') finish(Object.assign(new Error(m.message), { code: m.code }));
       });
       port.onDisconnect.addListener(() => finish(new Error('Se perdió la conexión con la extensión. Recarga la página.')));
       port.postMessage({ type: 'run', payload });
