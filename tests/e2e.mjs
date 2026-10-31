@@ -232,56 +232,147 @@ try {
   await page.locator('#subme-now-host [data-tab="ai"]').click();
   await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'subme-e2e.png') });
 
-  // Protección con contraseña
+  // ---------- Protección de las API keys (contraseña, imágenes y patrón) ----------
+  const IMG_SEQ = ['Gato', 'Cohete', 'Cactus', 'Guitarra', 'Manzana', 'Luna'];
+  const PAT_SEQ = [0, 6, 12, 18, 24, 19, 14]; // diagonal + subida por la derecha
+  const clickImages = async (p, scope, labels) => { for (const l of labels) await p.locator(`${scope} .sn-secret-images button[aria-label="${l}"]`).click(); };
+  const drawPattern = async (p, svgSel, seq) => {
+    await p.locator(svgSel).scrollIntoViewIfNeeded();
+    const box = await p.locator(svgSel).boundingBox();
+    const step = box.width / 5;
+    const pt = (i) => [box.x + (i % 5) * step + step / 2, box.y + Math.floor(i / 5) * step + step / 2];
+    await p.mouse.move(...pt(seq[0]));
+    await p.mouse.down();
+    for (const i of seq.slice(1)) await p.mouse.move(...pt(i), { steps: 6 });
+    await p.mouse.up();
+  };
+  const unlockVia = async (fill) => {
+    const [popup] = await Promise.all([
+      context.waitForEvent('page'),
+      page.locator('#subme-now-host .sn-output [data-act="unlock"], #subme-now-host [data-ref="lockbtn"]').first().click(),
+    ]);
+    await popup.waitForSelector('#secret.sn-secret');
+    return { popup, run: () => fill(popup) };
+  };
+  const expectLockedInPanel = async (action) => {
+    await page.bringToFront();
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.locator('#subme-now-host [data-tab="ai"]').click();
+    await page.locator('#subme-now-host [data-ref="lockbtn"]').waitFor({ state: 'visible', timeout: 5000 });
+    const before = requests.length;
+    await page.locator(`#subme-now-host [data-action="${action}"]`).click();
+    await page.locator('#subme-now-host .sn-output [data-act="unlock"]').waitFor({ timeout: 10000 });
+    return requests.length === before;
+  };
+  const expectWorksInPanel = async (action) => {
+    await page.bringToFront();
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    const before = requests.length;
+    await page.locator(`#subme-now-host [data-action="${action}"]`).click();
+    await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-output table'), null, { timeout: 10000 });
+    return requests.length === before + 1;
+  };
+  const lockFromOptions = async () => {
+    await opts.bringToFront();
+    await opts.click('#vLock');
+    await opts.waitForSelector('#vUnlock');
+  };
+
+  // 1) Contraseña
   await opts.reload();
-  await opts.waitForSelector('#vEnable');
-  await opts.fill('#vPass', 'contraseña-segura-1');
-  await opts.fill('#vPass2', 'contraseña-segura-1');
-  await opts.click('#vEnable');
+  await opts.waitForSelector('#vNext');
+  await opts.fill('#vInput input', 'contraseña-segura-1');
+  await opts.click('#vNext');
+  await opts.fill('#vInput input', 'contraseña-segura-1');
+  await opts.click('#vNext');
   await opts.waitForSelector('#vLock', { timeout: 15000 });
   const stored = await opts.evaluate(async () => JSON.stringify(await chrome.storage.local.get(null)));
   check('Contraseña: claves cifradas en disco (sin texto plano)', !stored.includes('sk-secreto') && stored.includes('"vault"'));
-  await opts.click('#vLock');
-  await opts.waitForSelector('#vUnlock');
+  await lockFromOptions();
   check('Contraseña: campo de API key deshabilitado al bloquear', await opts.isDisabled('#apiKey'));
-
-  await page.bringToFront();
-  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await page.locator('#subme-now-host [data-tab="ai"]').click();
-  await page.locator('#subme-now-host [data-ref="lockbtn"]').waitFor({ state: 'visible', timeout: 5000 });
-  check('Contraseña: el panel muestra el candado', true);
-  const before = requests.length;
-  await page.locator('#subme-now-host [data-action="quiz"]').click();
-  await page.locator('#subme-now-host .sn-output [data-act="unlock"]').waitFor({ timeout: 10000 });
-  check('Contraseña: bloqueado no llama a la IA y ofrece desbloquear', requests.length === before);
-
-  const [popup] = await Promise.all([
-    context.waitForEvent('page'),
-    page.locator('#subme-now-host .sn-output [data-act="unlock"]').click(),
-  ]);
-  await popup.waitForSelector('#password');
-  await popup.fill('#password', 'incorrecta-123');
-  await popup.click('#submit');
-  await popup.waitForFunction(() => document.querySelector('#msg').textContent.includes('incorrecta'), null, { timeout: 15000 });
-  check('Contraseña: rechaza una contraseña incorrecta', true);
-  await popup.fill('#password', 'contraseña-segura-1');
-  await Promise.all([popup.waitForEvent('close', { timeout: 15000 }), popup.click('#submit')]);
-  check('Contraseña: desbloqueo desde la ventana', true);
-
-  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await page.locator('#subme-now-host [data-action="quiz"]').click();
-  await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-output table'), null, { timeout: 10000 });
-  check('Contraseña: desbloqueado, la IA funciona', requests.length === before + 1);
+  check('Contraseña: bloqueado no llama a la IA y ofrece desbloquear', await expectLockedInPanel('quiz'));
+  {
+    const { popup } = await unlockVia();
+    await popup.fill('#secret input', 'incorrecta-123');
+    await popup.click('#submit');
+    await popup.waitForFunction(() => document.querySelector('#msg').textContent.includes('incorrecta'), null, { timeout: 15000 });
+    check('Contraseña: rechaza una contraseña incorrecta', true);
+    await popup.fill('#secret input', 'contraseña-segura-1');
+    await Promise.all([popup.waitForEvent('close', { timeout: 15000 }), popup.click('#submit')]);
+  }
+  check('Contraseña: desbloqueada, la IA funciona', await expectWorksInPanel('quiz'));
   check('Contraseña: candado oculto tras desbloquear', await page.locator('#subme-now-host [data-ref="lockbtn"]').isHidden());
   const sessionKeys = await opts.evaluate(async () => (await SubmeVault.getSession())?.keys);
   check('Contraseña: la clave original se recupera intacta', sessionKeys?.anthropic === 'sk-secreto-de-prueba');
+
+  // 2) Cambiar a imágenes
+  await opts.bringToFront();
+  await opts.reload();
+  await opts.waitForSelector('#vChangeOpen');
+  await opts.click('#vChangeOpen');
+  await opts.click('#vChange [data-m="images"]');
+  const order1 = await opts.$$eval('#vInput .sn-secret-images button', (bs) => bs.map((b) => b.getAttribute('aria-label')).join());
+  await clickImages(opts, '#vInput', IMG_SEQ.slice(0, 3));
+  await opts.click('#vNext');
+  check('Imágenes: exige al menos 6', (await opts.textContent('#vMsg')).includes('al menos 6'));
+  await opts.click('#vInput [data-k="clear"]');
+  await clickImages(opts, '#vInput', IMG_SEQ);
+  await opts.click('#vNext');
+  const order2 = await opts.$$eval('#vInput .sn-secret-images button', (bs) => bs.map((b) => b.getAttribute('aria-label')).join());
+  check('Imágenes: la grilla se mezcla en cada paso', order1 !== order2);
+  await clickImages(opts, '#vInput', IMG_SEQ);
+  await opts.click('#vNext');
+  await opts.waitForFunction(() => document.querySelector('#vMsg')?.textContent.includes('cambiado'), null, { timeout: 15000 });
+  check('Imágenes: método cambiado', (await opts.evaluate(async () => (await SubmeVault.status()).method)) === 'images');
+  await lockFromOptions();
+  check('Imágenes: bloqueado no llama a la IA', await expectLockedInPanel('mindmap'));
+  {
+    const { popup } = await unlockVia();
+    await clickImages(popup, '#secret', [...IMG_SEQ].reverse());
+    await popup.click('#submit');
+    await popup.waitForFunction(() => document.querySelector('#msg').textContent.includes('no coinciden'), null, { timeout: 15000 });
+    check('Imágenes: rechaza el orden incorrecto', true);
+    await clickImages(popup, '#secret', IMG_SEQ);
+    await Promise.all([popup.waitForEvent('close', { timeout: 15000 }), popup.click('#submit')]);
+  }
+  check('Imágenes: desbloqueadas, la IA funciona', await expectWorksInPanel('mindmap'));
+
+  // 3) Cambiar a patrón
+  await opts.bringToFront();
+  await opts.reload();
+  await opts.waitForSelector('#vChangeOpen');
+  await opts.click('#vChangeOpen');
+  await opts.click('#vChange [data-m="pattern"]');
+  check('Patrón: tamaño correcto tras cambiar desde imágenes', (await opts.locator('#vInput svg').boundingBox()).width > 200);
+  await drawPattern(opts, '#vInput svg', PAT_SEQ);
+  const patText = await opts.textContent('#vInput .sn-secret-progress');
+  check('Patrón: se dibuja con el mouse', patText.startsWith(`${PAT_SEQ.length} puntos`), patText);
+  await opts.click('#vNext');
+  await drawPattern(opts, '#vInput svg', PAT_SEQ);
+  await opts.click('#vNext');
+  await opts.waitForFunction(() => document.querySelector('#vMsg')?.textContent.includes('cambiado'), null, { timeout: 15000 });
+  check('Patrón: método cambiado', (await opts.evaluate(async () => (await SubmeVault.status()).method)) === 'pattern');
+  await lockFromOptions();
+  check('Patrón: bloqueado no llama a la IA', await expectLockedInPanel('eli5'));
+  {
+    const { popup } = await unlockVia();
+    await drawPattern(popup, '#secret svg', [0, 1, 2, 3, 4, 9]);
+    await popup.waitForFunction(() => document.querySelector('#msg').textContent.includes('no coincide'), null, { timeout: 15000 });
+    check('Patrón: rechaza un patrón incorrecto', true);
+    await Promise.all([popup.waitForEvent('close', { timeout: 15000 }), drawPattern(popup, '#secret svg', PAT_SEQ)]);
+    check('Patrón: se desbloquea solo al soltar el mouse', true);
+  }
+  check('Patrón: desbloqueado, la IA funciona', await expectWorksInPanel('eli5'));
+
+  // Desactivar
+  await opts.bringToFront();
   await opts.reload();
   await opts.waitForSelector('#vDisable');
   opts.once('dialog', (d) => d.accept());
   await opts.click('#vDisable');
-  await opts.waitForSelector('#vEnable');
+  await opts.waitForSelector('#vNext');
   const plain = await opts.evaluate(async () => (await chrome.storage.local.get(['settings', 'vault'])));
-  check('Contraseña: desactivar restaura las claves', plain.settings.providers.anthropic.apiKey === 'sk-secreto-de-prueba' && !plain.vault);
+  check('Desactivar protección restaura las claves', plain.settings.providers.anthropic.apiKey === 'sk-secreto-de-prueba' && !plain.vault);
 
   // Navegación SPA a otra página
   await page.evaluate(() => { history.pushState({}, '', '/'); document.dispatchEvent(new Event('yt-navigate-finish')); });

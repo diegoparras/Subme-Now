@@ -249,42 +249,85 @@
     return Object.fromEntries(Object.keys(PROVIDERS).map((id) => [id, settings.providers[id]?.apiKey || '']).filter(([, v]) => v));
   }
 
+  const SI = SubmeSecretInput;
+  const methodName = (m) => SI.METHODS[m]?.label.toLowerCase() || 'contraseña';
+
+  /**
+   * Flujo de creación de secreto en dos pasos (crear → repetir) con elección de método.
+   * onDone(secret, method) se llama cuando ambos coinciden.
+   */
+  function secretSetup(box, { buttonLabel, onDone, initialMethod = 'password' }) {
+    let method = initialMethod;
+    let first = null;
+    let ctrl = null;
+    box.innerHTML = `
+      <div class="sn-methods">${Object.entries(SI.METHODS).map(([id, m]) => `<button type="button" data-m="${id}">${m.icon} ${m.label}<small>${{ password: 'Mín. 8 caracteres', images: 'Mín. 6 imágenes en orden', pattern: 'Mín. 6 puntos unidos' }[id]}</small></button>`).join('')}</div>
+      <div class="sn-secret-step" id="vStep"></div>
+      <div id="vInput"></div>
+      <div class="row" style="margin-top:10px;justify-content:center"><button type="button" class="btn" id="vBack" hidden>← Volver</button><button type="button" class="btn primary" id="vNext"></button></div>
+      <div style="text-align:center;margin-top:6px"><span id="vMsg" class="test-result"></span></div>`;
+    const step = (n) => {
+      box.querySelectorAll('[data-m]').forEach((b) => { b.classList.toggle('active', b.dataset.m === method); b.disabled = n === 2; });
+      $('vStep').textContent = n === 1
+        ? { password: '1. Escribe tu contraseña', images: '1. Elige tus imágenes en orden (recuerda la secuencia)', pattern: '1. Dibuja tu patrón' }[method]
+        : `2. Repite ${method === 'images' ? 'las imágenes' : method === 'pattern' ? 'el patrón' : 'la contraseña'} para confirmar`;
+      $('vNext').textContent = n === 1 ? 'Continuar' : buttonLabel;
+      $('vBack').hidden = n === 1;
+      ctrl = SI.create($('vInput'), { method, autocomplete: 'new-password', onComplete: () => {} });
+      ctrl.focus();
+    };
+    box.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => { method = b.dataset.m; first = null; secMsg(''); step(1); }));
+    $('vBack').addEventListener('click', () => { first = null; secMsg(''); step(1); });
+    $('vNext').addEventListener('click', async () => {
+      try {
+        ctrl.validate();
+        if (first === null) { first = ctrl.value; secMsg(''); step(2); return; }
+        if (ctrl.value !== first) { ctrl.clear(); throw new Error(`No coincide con ${method === 'images' ? 'las imágenes' : method === 'pattern' ? 'el patrón' : 'la contraseña'} del paso 1. Inténtalo otra vez.`); }
+        secMsg('Cifrando…', true);
+        await onDone(first, method);
+      } catch (e) { secMsg(e.message); }
+    });
+    step(1);
+  }
+
   function renderSecurity() {
     const box = $('securityBody');
     if (!vault.enabled) {
       box.innerHTML = `
-        <p class="muted">Cifra tus API keys con una contraseña. Si alguien copia tu perfil de Chrome, solo verá datos cifrados. Para usar la IA tendrás que desbloquearlas (una vez por sesión del navegador).</p>
-        <div class="grid2">
-          <label class="field"><span>Contraseña (mín. 8 caracteres)</span><input type="password" id="vPass" autocomplete="new-password"></label>
-          <label class="field"><span>Repetir contraseña</span><input type="password" id="vPass2" autocomplete="new-password"></label>
-          <label class="field"><span>Bloquear automáticamente</span>${autolockSelect(0)}</label>
-        </div>
-        <div class="row"><button type="button" class="btn primary" id="vEnable">Activar protección</button><span id="vMsg" class="test-result"></span></div>
-        <p class="muted"><small>⚠ Si olvidas la contraseña no hay forma de recuperarla: tendrás que volver a pegar tus claves.</small></p>`;
-      $('vEnable').addEventListener('click', async () => {
-        if ($('vPass').value !== $('vPass2').value) return secMsg('Las contraseñas no coinciden.');
-        try {
-          secMsg('Cifrando…', true);
-          await SubmeVault.enable($('vPass').value, plainKeys(), $('vAutolock').value);
+        <p class="muted">Cifra tus API keys. Si alguien copia tu perfil de Chrome, solo verá datos cifrados. Para usar la IA tendrás que desbloquearlas (una vez por sesión del navegador). Elige cómo: con una contraseña, una secuencia de imágenes o un patrón de puntos.</p>
+        <div id="vSetup"></div>
+        <label class="field" style="max-width:320px;margin:14px auto 0"><span>Bloquear automáticamente</span>${autolockSelect(0)}</label>
+        <p class="muted" style="text-align:center"><small>⚠ Si lo olvidas no hay forma de recuperarlo: tendrás que volver a pegar tus claves.</small></p>`;
+      secretSetup($('vSetup'), {
+        buttonLabel: 'Activar protección',
+        onDone: async (secret, method) => {
+          await SubmeVault.enable(secret, plainKeys(), $('vAutolock').value, method);
           for (const id of Object.keys(settings.providers)) settings.providers[id].apiKey = '';
           await save(true);
           await refreshVault();
           secMsg('Protección activada ✓', true);
-        } catch (e) { secMsg(e.message); }
+        },
       });
       return;
     }
     if (vault.locked) {
       box.innerHTML = `
-        <p><b>🔒 Claves cifradas y bloqueadas.</b></p>
-        <div class="row"><input type="password" id="vPass" placeholder="Contraseña" autocomplete="current-password"><button type="button" class="btn primary" id="vUnlock">Desbloquear</button></div>
-        <div class="row" style="margin-top:8px"><span id="vMsg" class="test-result"></span></div>
-        <p class="muted"><button type="button" class="btn danger" id="vForgot">Olvidé la contraseña</button></p>`;
+        <p style="text-align:center"><b>🔒 Claves cifradas y bloqueadas</b> <span class="muted">(${methodName(vault.method)})</span></p>
+        <div id="vInput"></div>
+        <div class="row" style="margin-top:10px;justify-content:center"><button type="button" class="btn primary" id="vUnlock">Desbloquear</button></div>
+        <div style="text-align:center;margin-top:6px"><span id="vMsg" class="test-result"></span></div>
+        <p class="muted" style="text-align:center"><button type="button" class="btn danger" id="vForgot">Lo olvidé</button></p>`;
+      let ctrl = null;
       const doUnlock = async () => {
-        try { secMsg('Verificando…', true); await SubmeVault.unlock($('vPass').value); await refreshVault(); secMsg('Desbloqueadas ✓', true); } catch (e) { secMsg(e.message); }
+        try {
+          secMsg('Verificando…', true);
+          await SubmeVault.unlock(ctrl.value);
+          await refreshVault();
+          secMsg('Desbloqueadas ✓', true);
+        } catch (e) { secMsg(e.message); ctrl.clear(); }
       };
+      ctrl = SI.create($('vInput'), { method: vault.method, onComplete: () => { if (vault.method !== 'images') doUnlock(); } });
       $('vUnlock').addEventListener('click', doUnlock);
-      $('vPass').addEventListener('keydown', (e) => { if (e.key === 'Enter') doUnlock(); });
       $('vForgot').addEventListener('click', async () => {
         if (!confirm('Se borrarán tus API keys cifradas y tendrás que volver a pegarlas. ¿Continuar?')) return;
         await SubmeVault.reset();
@@ -293,18 +336,28 @@
       return;
     }
     box.innerHTML = `
-      <p><b>🔓 Claves cifradas y desbloqueadas</b> <span class="muted">(se bloquean al cerrar el navegador${vault.autoLockMinutes ? ` o tras ${vault.autoLockMinutes} min sin uso` : ''}).</span></p>
+      <p><b>🔓 Claves cifradas y desbloqueadas</b> <span class="muted">(método: ${methodName(vault.method)}; se bloquean al cerrar el navegador${vault.autoLockMinutes ? ` o tras ${vault.autoLockMinutes} min sin uso` : ''}).</span></p>
       <div class="row"><button type="button" class="btn" id="vLock">🔒 Bloquear ahora</button><label class="row" style="flex:1">${autolockSelect(vault.autoLockMinutes)}</label></div>
-      <div class="grid2" style="margin-top:8px">
-        <label class="field"><span>Nueva contraseña</span><input type="password" id="vPass" autocomplete="new-password"></label>
-        <label class="field"><span>Repetir nueva contraseña</span><input type="password" id="vPass2" autocomplete="new-password"></label>
-      </div>
-      <div class="row"><button type="button" class="btn" id="vChange">Cambiar contraseña</button><button type="button" class="btn danger" id="vDisable">Desactivar protección</button><span id="vMsg" class="test-result"></span></div>`;
+      <div class="row" style="margin-top:10px"><button type="button" class="btn" id="vChangeOpen">Cambiar método o secreto</button><button type="button" class="btn danger" id="vDisable">Desactivar protección</button></div>
+      <div id="vChange" hidden style="margin-top:12px"></div>
+      <div style="margin-top:6px"><span id="vMsg" class="test-result"></span></div>`;
     $('vLock').addEventListener('click', async () => { await SubmeVault.lock(); await refreshVault(); });
     $('vAutolock').addEventListener('change', async () => { await SubmeVault.setAutoLock($('vAutolock').value); vault = await SubmeVault.status(); secMsg('Guardado ✓', true); });
-    $('vChange').addEventListener('click', async () => {
-      if ($('vPass').value !== $('vPass2').value) return secMsg('Las contraseñas no coinciden.');
-      try { await SubmeVault.changePassword($('vPass').value); $('vPass').value = ''; $('vPass2').value = ''; secMsg('Contraseña cambiada ✓', true); } catch (e) { secMsg(e.message); }
+    $('vChangeOpen').addEventListener('click', () => {
+      const c = $('vChange');
+      c.hidden = false;
+      $('vChangeOpen').disabled = true;
+      // El área de mensajes la crea secretSetup dentro del bloque; eliminamos la externa para no duplicar ids.
+      document.querySelectorAll('#vMsg').forEach((el) => el.remove());
+      secretSetup(c, {
+        buttonLabel: 'Guardar nuevo secreto',
+        initialMethod: vault.method,
+        onDone: async (secret, method) => {
+          await SubmeVault.changePassword(secret, method);
+          await refreshVault();
+          secMsg('Secreto cambiado ✓', true);
+        },
+      });
     });
     $('vDisable').addEventListener('click', async () => {
       if (!confirm('Las API keys volverán a guardarse sin cifrar en este navegador. ¿Continuar?')) return;

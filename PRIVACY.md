@@ -16,7 +16,7 @@ Subme Now es una extensión de navegador que muestra la transcripción de los vi
 | Dato | Para qué se usa | Dónde se guarda / a quién se envía |
 |---|---|---|
 | API keys de proveedores de IA | Autenticarte ante el proveedor que elegiste | `chrome.storage.local` de tu navegador (no se sincroniza). Solo se envía al proveedor correspondiente por HTTPS. Las páginas web, incluida YouTube, no pueden leerlas. |
-| Contraseña de protección (opcional) | Cifrar tus API keys | **No se guarda.** Se usa solo para derivar la clave de cifrado (PBKDF2-SHA256, 600.000 iteraciones); en disco queda únicamente el texto cifrado (AES-GCM 256). Las claves descifradas viven en memoria (`chrome.storage.session`) hasta que cierras el navegador o se bloquean por inactividad. |
+| Secreto de protección (opcional: contraseña, secuencia de imágenes o patrón) | Cifrar tus API keys | **No se guarda.** Se usa solo para derivar la clave de cifrado (PBKDF2-SHA256, 600.000 iteraciones); en disco queda únicamente el texto cifrado (AES-GCM 256). Las claves descifradas viven en memoria (`chrome.storage.session`) hasta que cierras el navegador o se bloquean por inactividad. |
 | Preferencias (proveedor, modelo, idioma, acciones personalizadas) | Recordar tu configuración | `chrome.storage.local` de tu navegador |
 | Transcripción, título, canal y URL del video | Generar resúmenes, respuestas del chat y demás acciones | Se obtiene de YouTube y se envía al proveedor de IA elegido solo cuando usas una función de IA. No se almacena de forma permanente. |
 | Preguntas que escribes en el chat o en el prompt libre | Responderte | Se envían al proveedor de IA elegido. No se almacenan de forma permanente. |

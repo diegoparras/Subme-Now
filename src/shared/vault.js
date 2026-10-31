@@ -88,18 +88,23 @@
     return crypto.subtle.importKey('raw', fromB64(s.raw), { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
   }
 
-  function checkPassword(password) {
-    if (typeof password !== 'string' || password.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres.');
+  function checkPassword(secret, method = 'password') {
+    if (typeof secret !== 'string') throw new Error('Secreto inválido.');
+    if (root.SubmeSecretInput) return root.SubmeSecretInput.validate(method, secret);
+    if (secret.length < 8) throw new Error('El secreto es demasiado corto.');
   }
 
-  /** Activa la protección: cifra las claves dadas ({provider: apiKey}). */
-  async function enable(password, keys, autoLockMinutes = 0) {
-    checkPassword(password);
+  /**
+   * Activa la protección: cifra las claves dadas ({provider: apiKey}).
+   * method: 'password' | 'images' | 'pattern' (solo informa qué pedir al desbloquear).
+   */
+  async function enable(secret, keys, autoLockMinutes = 0, method = 'password') {
+    checkPassword(secret, method);
     const salt = crypto.getRandomValues(new Uint8Array(16));
-    const key = await deriveKey(password, salt);
+    const key = await deriveKey(secret, salt);
     const payload = await encryptJson(key, keys);
     await chrome.storage.local.set({
-      vault: { version: 1, kdf: 'PBKDF2-SHA256', iterations: ITERATIONS, salt: toB64(salt), ...payload, hasKey: hasKeyMap(keys), autoLockMinutes: Number(autoLockMinutes) || 0 },
+      vault: { version: 1, kdf: 'PBKDF2-SHA256', iterations: ITERATIONS, salt: toB64(salt), ...payload, hasKey: hasKeyMap(keys), autoLockMinutes: Number(autoLockMinutes) || 0, method },
     });
     await storeSession(key, keys);
   }
@@ -112,7 +117,8 @@
     try {
       keys = await decryptJson(key, vault.iv, vault.data);
     } catch {
-      throw new Error('Contraseña incorrecta.');
+      const m = (await getVault())?.method;
+      throw new Error(m === 'images' ? 'Las imágenes no coinciden.' : m === 'pattern' ? 'El patrón no coincide.' : 'Contraseña incorrecta.');
     }
     await storeSession(key, keys);
     return keys;
@@ -128,11 +134,11 @@
     await chrome.storage.session.set({ unlocked: { ...s, keys, lastUsed: Date.now() } });
   }
 
-  async function changePassword(newPassword) {
+  async function changePassword(newSecret, method) {
     const s = await getSession();
     const vault = await getVault();
     if (!s || !vault) throw new Error('Desbloquea las claves primero.');
-    await enable(newPassword, s.keys, vault.autoLockMinutes);
+    await enable(newSecret, s.keys, vault.autoLockMinutes, method || vault.method || 'password');
   }
 
   async function setAutoLock(minutes) {
@@ -160,7 +166,7 @@
     const vault = await getVault();
     if (!vault) return { enabled: false, locked: false, hasKey: {} };
     const s = await getSession();
-    return { enabled: true, locked: !s, hasKey: vault.hasKey || {}, autoLockMinutes: vault.autoLockMinutes || 0 };
+    return { enabled: true, locked: !s, hasKey: vault.hasKey || {}, autoLockMinutes: vault.autoLockMinutes || 0, method: vault.method || 'password' };
   }
 
   root.SubmeVault = { enable, unlock, lock, getSession, touch, saveKeys, changePassword, setAutoLock, disable, reset, status, isEnabled, ITERATIONS };

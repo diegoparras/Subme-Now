@@ -58,7 +58,7 @@ Hazle preguntas al video: la IA responde a partir de la transcripción y te indi
 🔒 PRIVACIDAD
 • Sin servidores intermedios, sin analíticas, sin publicidad
 • Tus API keys se guardan solo en tu navegador y YouTube no puede leerlas
-• Opcional: cifra tus claves con una contraseña (AES-256)
+• Opcional: cifra tus claves (AES-256) con contraseña, secuencia de imágenes o patrón de puntos
 • Solo se envía la transcripción a la IA cuando tú lo pides
 • Código abierto: https://github.com/diegoparras/Subme-Now
 
@@ -100,7 +100,7 @@ Ask questions and get answers grounded in the transcript, with clickable timesta
 Custom AI buttons, free-form prompts, optional auto-summary, long videos condensed automatically, light and dark mode.
 
 🔒 PRIVACY
-No middle-man servers, no analytics, no ads. Your API keys stay in your browser and YouTube can't read them; optionally encrypt them with a password (AES-256). Transcripts are sent to the AI only when you ask. Open source: https://github.com/diegoparras/Subme-Now
+No middle-man servers, no analytics, no ads. Your API keys stay in your browser and YouTube can't read them; optionally encrypt them (AES-256) with a password, an image sequence or a dot pattern. Transcripts are sent to the AI only when you ask. Open source: https://github.com/diegoparras/Subme-Now
 
 AI features need an API key from your chosen provider (some, like OpenRouter, offer free models). The transcript works without any key.
 

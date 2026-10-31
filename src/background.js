@@ -38,7 +38,7 @@ async function settingsWithKeys() {
 }
 
 function openUnlockWindow() {
-  return chrome.windows.create({ url: chrome.runtime.getURL('src/unlock/unlock.html'), type: 'popup', width: 420, height: 380, focused: true });
+  return chrome.windows.create({ url: chrome.runtime.getURL('src/unlock/unlock.html'), type: 'popup', width: 440, height: 720, focused: true });
 }
 
 const CONTENT_WRITABLE = ['panelCollapsed', 'shortsCollapsed', 'showTimestamps', 'autoScroll', 'responseLanguage', 'provider'];
