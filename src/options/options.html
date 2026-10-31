@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subme Now — Configuración</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="top">
+      <div class="brand"><img src="../../icons/icon48.png" alt="" width="40" height="40"><div><h1>Subme Now</h1><p>Transcripciones e IA para YouTube</p></div></div>
+      <span class="saved" id="saved" aria-live="polite"></span>
+    </header>
+
+    <section class="card">
+      <h2>1. Proveedor de IA</h2>
+      <p class="muted">Elige el servicio que generará los resúmenes. Tus claves se guardan solo en este navegador y se envían únicamente al proveedor elegido.</p>
+      <div class="providers" id="providers"></div>
+
+      <div class="provider-form" id="providerForm">
+        <p class="muted" id="providerHint"></p>
+        <label class="field" id="baseUrlField" hidden>
+          <span>URL base (compatible con OpenAI)</span>
+          <input type="url" id="baseUrl" placeholder="http://localhost:11434/v1" spellcheck="false">
+          <small>Ej.: Ollama <code>http://localhost:11434/v1</code>, LM Studio <code>http://localhost:1234/v1</code>, Groq <code>https://api.groq.com/openai/v1</code>, DeepSeek <code>https://api.deepseek.com/v1</code>.</small>
+        </label>
+        <label class="field">
+          <span>API key <a id="keyLink" target="_blank" rel="noopener">Obtener clave ↗</a></span>
+          <div class="row">
+            <input type="password" id="apiKey" autocomplete="off" spellcheck="false" placeholder="Pega aquí tu clave">
+            <button type="button" class="btn" id="toggleKey">Mostrar</button>
+          </div>
+        </label>
+        <label class="field">
+          <span>Modelo</span>
+          <div class="row">
+            <input type="text" id="model" list="modelList" spellcheck="false">
+            <button type="button" class="btn" id="loadModels">Cargar modelos</button>
+          </div>
+          <datalist id="modelList"></datalist>
+          <small id="modelHelp">Déjalo vacío para usar el modelo recomendado.</small>
+        </label>
+        <div class="row">
+          <button type="button" class="btn primary" id="test">Probar conexión</button>
+          <span id="testResult" class="test-result"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2. Respuestas de la IA</h2>
+      <div class="grid2">
+        <label class="field">
+          <span>Idioma de las respuestas</span>
+          <select id="responseLanguage"></select>
+        </label>
+        <label class="field">
+          <span>Máx. tokens de salida</span>
+          <input type="number" id="maxOutputTokens" min="256" max="128000" step="256">
+          <small>Límite de longitud de cada respuesta.</small>
+        </label>
+        <label class="field">
+          <span>Máx. caracteres de transcripción por consulta</span>
+          <input type="number" id="maxContextChars" min="20000" max="4000000" step="10000">
+          <small>Si el video es más largo, se condensa por partes automáticamente (útil con modelos de contexto chico).</small>
+        </label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3. Transcripción y panel</h2>
+      <div class="grid2">
+        <label class="field">
+          <span>Idioma preferido de subtítulos</span>
+          <input type="text" id="transcriptLanguage" placeholder="es, en, pt… (vacío = el del video)" maxlength="10">
+        </label>
+        <label class="field">
+          <span>Pestaña inicial</span>
+          <select id="defaultTab">
+            <option value="transcript">Transcripción</option>
+            <option value="ai">IA</option>
+            <option value="chat">Chat</option>
+          </select>
+        </label>
+      </div>
+      <label class="check"><input type="checkbox" id="showTimestamps"> Mostrar marcas de tiempo</label>
+      <label class="check"><input type="checkbox" id="autoScroll"> Seguir el video automáticamente (resaltar la línea actual)</label>
+      <label class="check"><input type="checkbox" id="panelCollapsed"> Iniciar el panel contraído</label>
+      <label class="check"><input type="checkbox" id="autoSummary"> Generar el resumen automáticamente al abrir un video <small>(consume créditos de la API en cada video)</small></label>
+    </section>
+
+    <section class="card">
+      <h2>4. Acciones personalizadas</h2>
+      <p class="muted">Crea tus propios botones de IA. El prompt recibe automáticamente la transcripción y los datos del video.</p>
+      <div id="customActions"></div>
+      <button type="button" class="btn" id="addAction">+ Agregar acción</button>
+    </section>
+
+    <section class="card">
+      <h2>Privacidad</h2>
+      <ul class="muted">
+        <li>Subme Now no tiene servidores propios: la transcripción se obtiene directamente de YouTube y las consultas van directo del navegador al proveedor que elijas.</li>
+        <li>Las API keys se guardan en <code>chrome.storage.local</code> (no se sincronizan con tu cuenta).</li>
+        <li>Nunca se envía nada a la IA sin que hagas clic en una acción (salvo que actives el resumen automático).</li>
+      </ul>
+      <button type="button" class="btn danger" id="reset">Restablecer configuración</button>
+    </section>
+  </main>
+
+  <script src="../shared/settings.js"></script>
+  <script src="../shared/providers.js"></script>
+  <script src="../shared/prompts.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>
