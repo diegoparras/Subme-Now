@@ -266,7 +266,7 @@
       <div id="vInput"></div>
       <div class="row" style="margin-top:10px;justify-content:center"><button type="button" class="btn" id="vBack" hidden>← Volver</button><button type="button" class="btn primary" id="vNext"></button></div>
       <div style="text-align:center;margin-top:6px"><span id="vMsg" class="test-result"></span></div>`;
-    const step = (n) => {
+    const step = (n, focus = true) => {
       box.querySelectorAll('[data-m]').forEach((b) => { b.classList.toggle('active', b.dataset.m === method); b.disabled = n === 2; });
       $('vStep').textContent = n === 1
         ? { password: '1. Escribe tu contraseña', images: '1. Elige tus imágenes en orden (recuerda la secuencia)', pattern: '1. Dibuja tu patrón' }[method]
@@ -274,7 +274,8 @@
       $('vNext').textContent = n === 1 ? 'Continuar' : buttonLabel;
       $('vBack').hidden = n === 1;
       ctrl = SI.create($('vInput'), { method, autocomplete: 'new-password', onComplete: () => {} });
-      ctrl.focus();
+      // Al abrir la página no se enfoca: si no, el navegador salta hasta la sección Seguridad.
+      if (focus) ctrl.focus();
     };
     box.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => { method = b.dataset.m; first = null; secMsg(''); step(1); }));
     $('vBack').addEventListener('click', () => { first = null; secMsg(''); step(1); });
@@ -287,7 +288,7 @@
         await onDone(first, method);
       } catch (e) { secMsg(e.message); }
     });
-    step(1);
+    step(1, false);
   }
 
   function renderSecurity() {

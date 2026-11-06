@@ -10,7 +10,7 @@ Tiempo estimado: 30–45 minutos + revisión de Google (normalmente de 1 a 7 dí
    ```bash
    npm run build
    ```
-   Crea `dist/subme-now-1.1.1.zip` (solo `manifest.json`, `_locales`, `icons` y `src`).
+   Crea `dist/subme-now-1.1.2.zip` (solo `manifest.json`, `_locales`, `icons` y `src`).
 3. **Prueba el paquete**: descomprímelo en una carpeta nueva y cárgalo en `chrome://extensions` → *Cargar descomprimida*. Revisa un video normal, un Short y una acción de IA.
 
 ## 1. Cuenta de desarrollador
@@ -21,7 +21,7 @@ Tiempo estimado: 30–45 minutos + revisión de Google (normalmente de 1 a 7 dí
 
 ## 2. Subir el paquete
 
-**Items → New item →** sube `dist/subme-now-1.1.1.zip`.
+**Items → New item →** sube `dist/subme-now-1.1.2.zip`.
 
 ## 3. Pestaña "Store listing"
 
