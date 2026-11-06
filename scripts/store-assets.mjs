@@ -168,7 +168,7 @@ function page({ kicker, title, lead, dark = false, shorts = false }) {
 
 const SCENES = {
   transcript: { kicker: '📜 Transcripción', title: 'La transcripción completa, <em>al lado del video</em>', lead: 'Busca palabras, haz clic en cualquier línea para saltar a ese momento y descárgala en TXT, SRT, VTT o Markdown.' },
-  summary: { kicker: '✨ Resúmenes con IA', title: 'Entiende un video de 15 minutos <em>en 30 segundos</em>', lead: 'Resúmenes, puntos clave, apuntes, quizzes y flashcards con tu propia API key de OpenAI, Claude, Gemini, Grok u OpenRouter.' },
+  summary: { kicker: '✨ Resúmenes con IA', title: 'Entiende un video de 15 minutos <em>en 30 segundos</em>', lead: 'Resúmenes, puntos clave, apuntes, quizzes y flashcards con tu propia API key, del proveedor de IA que prefieras.' },
   chapters: { kicker: '⏱️ Capítulos', title: 'Capítulos con marcas de tiempo <em>clicables</em>', lead: 'Cada marca de tiempo de la IA te lleva directo a ese momento del video.' },
   chat: { kicker: '💬 Chat', title: 'Hazle preguntas <em>al video</em>', lead: 'Responde a partir de lo que realmente se dice e indica en qué minuto lo encuentras.', dark: true },
   shorts: { kicker: '📱 YouTube Shorts', title: 'También funciona <em>en Shorts</em>', lead: 'Un panel flotante con la transcripción y todas las acciones de IA.', dark: true, shorts: true },

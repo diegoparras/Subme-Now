@@ -1,5 +1,7 @@
 # Ficha de la Chrome Web Store
 
+> Importante: no agregues listas de marcas o productos (nombres de proveedores de IA, etc.) en la descripción. Google lo considera spam de palabras clave y rechaza la extensión (rechazo "Yellow Argon" del 5/11/2026).
+
 Copia y pega cada campo en el Developer Dashboard. Está en **español** (idioma principal) y en **inglés** (agrégalo como segundo idioma en "Store listing → Add language").
 
 ---
@@ -9,60 +11,40 @@ Copia y pega cada campo en el Developer Dashboard. Está en **español** (idioma
 **Nombre** (viene del manifest): Subme Now: transcripción y resumen con IA para YouTube
 
 **Resumen** (máx. 132, viene del manifest):
-Extrae subtítulos de videos y Shorts de YouTube y crea resúmenes, capítulos y quizzes con OpenAI, Claude, Gemini, Grok u OpenRouter.
+Extrae los subtítulos de videos y Shorts de YouTube y crea resúmenes, capítulos y cuestionarios con IA usando tu propia API key.
 
 **Categoría:** Herramientas (Tools) — alternativa: Educación
 
 **Descripción:**
 
 ```
-Subme Now pone la transcripción de cualquier video de YouTube al lado del reproductor y te deja hacer con ella lo que quieras usando inteligencia artificial.
+Subme Now muestra la transcripción completa de cualquier video de YouTube al lado del reproductor y te permite aprovecharla con inteligencia artificial: resumirla, dividirla en capítulos, estudiarla o hacerle preguntas.
 
-📜 TRANSCRIPCIÓN (gratis, sin cuenta)
-• Panel integrado a la derecha del video y panel flotante en YouTube Shorts
-• Elige el idioma de los subtítulos o usa la traducción automática de YouTube
-• Haz clic en cualquier línea para saltar a ese momento
-• La línea que se está reproduciendo se resalta y sigue el video
-• Busca palabras dentro de la transcripción
-• Copia o descarga en TXT, SRT, VTT, Markdown o JSON
+TRANSCRIPCIÓN (gratis, sin cuenta)
+• Panel integrado junto al video y panel flotante en YouTube Shorts.
+• Elige el idioma de los subtítulos o usa la traducción automática de YouTube.
+• Haz clic en cualquier línea para saltar a ese momento del video.
+• La línea que se está reproduciendo se resalta y sigue el video.
+• Busca palabras dentro de la transcripción.
+• Copia o descarga el texto o los subtítulos en varios formatos.
 
-✨ IA CON TU PROPIA API KEY
-Conecta OpenRouter, OpenAI, Grok (xAI), Anthropic (Claude), Google Gemini o cualquier API compatible con OpenAI (Ollama, LM Studio, Groq, DeepSeek…). Cambia de proveedor, modelo e idioma de respuesta directamente desde el panel.
+ACCIONES CON IA
+Con un clic puedes obtener un resumen, los puntos clave, capítulos con marcas de tiempo, apuntes de estudio, un mapa mental, un cuestionario, tarjetas de estudio, citas destacadas, los pasos de un tutorial, las afirmaciones que conviene verificar, una explicación sencilla, borradores para redes sociales o un artículo, la transcripción limpia o una traducción completa.
 
-16 acciones con un clic:
-• Resumen con TL;DR
-• Puntos clave
-• Capítulos con marcas de tiempo (listos para pegar en la descripción)
-• Apuntes de estudio con glosario
-• Mapa mental
-• Quiz de opción múltiple
-• Flashcards con exportación a Anki
-• Citas destacadas
-• Pasos de un tutorial o lista de tareas
-• Afirmaciones a verificar y posibles sesgos
-• Explicación sencilla
-• Hilo para X, post para LinkedIn y artículo de blog
-• Transcripción limpia con puntuación
-• Traducción completa
+Las marcas de tiempo de cada respuesta son clicables y te llevan directo a ese momento del video. También puedes crear tus propias acciones o escribir cualquier pedido.
 
-💬 CHAT CON EL VIDEO
-Hazle preguntas al video: la IA responde a partir de la transcripción y te indica en qué minuto se dice cada cosa. Todas las marcas de tiempo son clicables.
+CHAT CON EL VIDEO
+Haz preguntas sobre el contenido y recibe respuestas basadas en lo que realmente se dice, con el minuto exacto de cada referencia.
 
-⭐ A TU MEDIDA
-• Crea tus propios botones de IA con tus prompts
-• Prompt libre para pedir cualquier cosa
-• Resumen automático opcional al abrir cada video
-• Videos de horas: se condensan por partes automáticamente
-• Modo claro y oscuro, igual que YouTube
+TU PROPIA CLAVE, TU ELECCIÓN
+Las funciones de IA usan tu propia API key del proveedor que prefieras, que configuras en las opciones de la extensión. Puedes cambiar de proveedor, modelo e idioma de respuesta directamente desde el panel. La transcripción funciona sin ninguna clave.
 
-🔒 PRIVACIDAD
-• Sin servidores intermedios, sin analíticas, sin publicidad
-• Tus API keys se guardan solo en tu navegador y YouTube no puede leerlas
-• Opcional: cifra tus claves (AES-256) con contraseña, secuencia de imágenes o patrón de puntos
-• Solo se envía la transcripción a la IA cuando tú lo pides
+PRIVACIDAD Y SEGURIDAD
+• Sin servidores intermedios, sin analíticas y sin publicidad.
+• Tus claves se guardan solo en tu navegador y la página de YouTube no puede leerlas.
+• Opcionalmente, puedes cifrarlas con una contraseña, una secuencia de imágenes o un patrón.
+• La transcripción se envía a la IA solo cuando tú lo pides.
 • Código abierto: https://github.com/diegoparras/Subme-Now
-
-Nota: las funciones de IA requieren una API key del proveedor que elijas (algunos, como OpenRouter, ofrecen modelos gratuitos). La transcripción funciona sin ninguna clave.
 
 Subme Now no está afiliado a YouTube ni a Google.
 ```
@@ -73,36 +55,38 @@ Subme Now no está afiliado a YouTube ni a Google.
 
 **Name:** Subme Now: AI transcript & summary for YouTube
 
-**Summary:** Get YouTube video & Shorts transcripts and make AI summaries, chapters and quizzes with OpenAI, Claude, Gemini, Grok or OpenRouter.
+**Summary:** Get transcripts from YouTube videos and Shorts and turn them into AI summaries, chapters and quizzes using your own API key.
 
 **Description:**
 
 ```
-Subme Now puts the transcript of any YouTube video right next to the player and lets you do anything with it using AI.
+Subme Now shows the full transcript of any YouTube video right next to the player and lets you put it to work with AI: summarize it, split it into chapters, study it or ask it questions.
 
-📜 TRANSCRIPT (free, no account)
-• Panel next to the video, plus a floating panel on YouTube Shorts
-• Pick the caption language or use YouTube's auto-translation
-• Click any line to jump to that moment
-• The current line is highlighted and follows the video
-• Search inside the transcript
-• Copy or download as TXT, SRT, VTT, Markdown or JSON
+TRANSCRIPT (free, no account)
+• Panel next to the video, plus a floating panel on YouTube Shorts.
+• Pick the caption language or use YouTube's automatic translation.
+• Click any line to jump to that moment in the video.
+• The current line is highlighted and follows the video.
+• Search inside the transcript.
+• Copy or download the text or captions in several formats.
 
-✨ AI WITH YOUR OWN API KEY
-Connect OpenRouter, OpenAI, Grok (xAI), Anthropic (Claude), Google Gemini or any OpenAI-compatible API (Ollama, LM Studio, Groq, DeepSeek…). Switch provider, model and answer language right from the panel.
+AI ACTIONS
+With one click you get a summary, key points, timestamped chapters, study notes, a mind map, a quiz, flashcards, notable quotes, tutorial steps, claims worth fact-checking, a simple explanation, social media or blog drafts, a clean transcript or a full translation.
 
-16 one-click actions: summary with TL;DR, key points, timestamped chapters, study notes, mind map, quiz, Anki flashcards, quotes, tutorial steps, fact-check, simple explanation, X thread, LinkedIn post, blog article, clean transcript and full translation.
+Timestamps in every answer are clickable and take you straight to that moment. You can also create your own actions or type any request.
 
-💬 CHAT WITH THE VIDEO
-Ask questions and get answers grounded in the transcript, with clickable timestamps.
+CHAT WITH THE VIDEO
+Ask questions about the content and get answers grounded in what is actually said, with the exact minute for each reference.
 
-⭐ MAKE IT YOURS
-Custom AI buttons, free-form prompts, optional auto-summary, long videos condensed automatically, light and dark mode.
+YOUR OWN KEY, YOUR CHOICE
+AI features use your own API key from the provider you prefer, set up in the extension options. Switch provider, model and answer language right from the panel. The transcript works without any key.
 
-🔒 PRIVACY
-No middle-man servers, no analytics, no ads. Your API keys stay in your browser and YouTube can't read them; optionally encrypt them (AES-256) with a password, an image sequence or a dot pattern. Transcripts are sent to the AI only when you ask. Open source: https://github.com/diegoparras/Subme-Now
-
-AI features need an API key from your chosen provider (some, like OpenRouter, offer free models). The transcript works without any key.
+PRIVACY AND SECURITY
+• No middle-man servers, no analytics, no ads.
+• Your keys stay in your browser and the YouTube page cannot read them.
+• Optionally encrypt them with a password, an image sequence or a pattern.
+• The transcript is sent to the AI only when you ask.
+• Open source: https://github.com/diegoparras/Subme-Now
 
 Subme Now is not affiliated with YouTube or Google.
 ```
