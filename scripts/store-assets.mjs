@@ -14,6 +14,10 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const { chromium } = createRequire(import.meta.url)('playwright');
+import vm from 'node:vm';
+const iconSandbox = {};
+vm.runInNewContext(fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/shared/icons.js'), 'utf8'), { globalThis: iconSandbox });
+const ICON = (n) => iconSandbox.SubmeIcons.icon(n).replace('width="16" height="16"', 'width="18" height="18"');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'store');
 const SHOTS = path.join(OUT, 'screenshots');
@@ -50,6 +54,23 @@ const LINES = [
 ];
 
 const RESPONSES = {
+  mindmap: [
+    '- Aprender un idioma en 6 meses',
+    '  - Exposición diaria [01:12]',
+    '    - Podcasts en el viaje',
+    '    - Series en versión original',
+    '  - Hablar desde el día uno [02:30]',
+    '    - Perder el miedo a equivocarse',
+    '    - Intercambio de idiomas',
+    '  - Repetición espaciada [04:05]',
+    '    - 20 palabras por día',
+    '    - 1.000 palabras = 80% del uso',
+    '  - Rutina de 60 minutos [08:30]',
+    '    - Flashcards por la mañana',
+    '    - Conversación por la noche',
+    '  - Medir el progreso [10:00]',
+    '    - Grabarse cada mes',
+  ].join('\n'),
   summary: `**TL;DR:** Aprender un idioma en 6 meses es posible combinando exposición diaria, práctica oral desde el primer día y repetición espaciada del vocabulario.
 
 ## Resumen
@@ -84,7 +105,7 @@ El autor insiste en que lo importante es hacerlo **todos los días** [00:21].`,
 };
 
 /* ---------------- API de IA simulada ---------------- */
-const pickResponse = (last) => (last.startsWith('Resume el video') || last.includes('puntos clave') ? RESPONSES.summary
+const pickResponse = (last) => (last.includes('mapa mental') ? RESPONSES.mindmap : last.startsWith('Resume el video') || last.includes('puntos clave') ? RESPONSES.summary
   : last.includes('capítulos') ? RESPONSES.chapters : RESPONSES.chat);
 const sse = (text) => `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\ndata: [DONE]\n\n`;
 const server = http.createServer((req, res) => {
@@ -152,7 +173,7 @@ const css = `
 
 function page({ kicker, title, lead, dark = false, shorts = false }) {
   const left = shorts
-    ? `<div class="kicker">${kicker}</div><h1>${title}</h1><p class="lead">${lead}</p><div class="short"><div class="play"></div><div class="vt">3 trucos para recordar vocabulario 🧠</div></div>`
+    ? `<div class="kicker">${kicker}</div><h1>${title}</h1><p class="lead">${lead}</p><div class="short"><div class="play"></div><div class="vt">3 trucos para recordar vocabulario</div></div>`
     : `<div class="kicker">${kicker}</div><h1>${title}</h1><p class="lead">${lead}</p><div class="video"><div class="play"></div><div class="vt">${TITLE}</div><div class="bar"></div></div>`;
   return `<!doctype html><html lang="es"${dark ? ' dark' : ''}><head><meta charset="utf-8"><title>${TITLE}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet"><style>${css}</style></head>
@@ -167,11 +188,11 @@ function page({ kicker, title, lead, dark = false, shorts = false }) {
 }
 
 const SCENES = {
-  transcript: { kicker: '📜 Transcripción', title: 'La transcripción completa, <em>al lado del video</em>', lead: 'Busca palabras, haz clic en cualquier línea para saltar a ese momento y descárgala en TXT, SRT, VTT o Markdown.' },
-  summary: { kicker: '✨ Resúmenes con IA', title: 'Entiende un video de 15 minutos <em>en 30 segundos</em>', lead: 'Resúmenes, puntos clave, apuntes, quizzes y flashcards con tu propia API key, del proveedor de IA que prefieras.' },
-  chapters: { kicker: '⏱️ Capítulos', title: 'Capítulos con marcas de tiempo <em>clicables</em>', lead: 'Cada marca de tiempo de la IA te lleva directo a ese momento del video.' },
-  chat: { kicker: '💬 Chat', title: 'Hazle preguntas <em>al video</em>', lead: 'Responde a partir de lo que realmente se dice e indica en qué minuto lo encuentras.', dark: true },
-  shorts: { kicker: '📱 YouTube Shorts', title: 'También funciona <em>en Shorts</em>', lead: 'Un panel flotante con la transcripción y todas las acciones de IA.', dark: true, shorts: true },
+  transcript: { kicker: `${ICON('transcript')} Transcripción`, title: 'La transcripción completa, <em>al lado del video</em>', lead: 'Busca palabras, haz clic en cualquier línea para saltar a ese momento y descárgala en TXT, SRT, VTT o Markdown.' },
+  summary: { kicker: `${ICON('sparkles')} Resúmenes con IA`, title: 'Entiende un video de 15 minutos <em>en 30 segundos</em>', lead: 'Resúmenes, puntos clave, apuntes, quizzes y flashcards con tu propia API key, del proveedor de IA que prefieras.' },
+  chapters: { kicker: `${ICON('mindmap')} Mapa mental`, title: 'Capítulos con marcas de tiempo <em>clicables</em>', lead: 'Cada marca de tiempo de la IA te lleva directo a ese momento del video.' },
+  chat: { kicker: `${ICON('chat')} Chat`, title: 'Hazle preguntas <em>al video</em>', lead: 'Responde a partir de lo que realmente se dice e indica en qué minuto lo encuentras.', dark: true },
+  shorts: { kicker: `${ICON('phone')} YouTube Shorts`, title: 'También funciona <em>en Shorts</em>', lead: 'Un panel flotante con la transcripción y todas las acciones de IA.', dark: true, shorts: true },
 };
 
 /* ---------------- navegador ---------------- */
@@ -253,7 +274,8 @@ try {
   });
 
   // Oculta la grilla de acciones para que el resultado se vea completo en la captura.
-  const hideGrid = (p) => p.evaluate(() => {
+  const hideGrid = async (p) => { await p.waitForTimeout(800); return hideGridNow(p); };
+  const hideGridNow = (p) => p.evaluate(() => {
     const r = document.querySelector('#subme-now-host').shadowRoot;
     r.querySelector('[data-ref="actions"]').style.display = 'none';
     r.querySelector('.sn-free').style.display = 'none';
@@ -278,9 +300,11 @@ try {
   });
   await shoot('chapters', async (p) => {
     await p.locator(`${sr} [data-tab="ai"]`).click();
-    await p.locator(`${sr} [data-action="chapters"]`).click();
-    await waitOutput(p, '.sn-output');
-    await hideGrid(p);
+    await p.locator(`${sr} [data-action="mindmap"]`).click();
+    await p.locator(`${sr} .mm-view svg`).waitFor({ timeout: 15000 });
+    await p.locator(`${sr} [data-mm="expand"]`).click();
+    await p.locator(`${sr} [data-mm="full"]`).click();
+    await p.locator(`${sr} .mm-overlay .mm-view svg`).waitFor({ timeout: 5000 });
   });
   await shoot('chat', async (p) => {
     await p.locator(`${sr} [data-tab="chat"]`).click();
@@ -296,7 +320,7 @@ try {
   });
 
   // Renombrar en orden
-  const order = { transcript: '1-transcripcion.png', summary: '2-resumen-ia.png', chapters: '3-capitulos.png', chat: '4-chat.png', shorts: '5-shorts.png' };
+  const order = { transcript: '1-transcripcion.png', summary: '2-resumen-ia.png', chapters: '3-mapa-mental.png', chat: '4-chat.png', shorts: '5-shorts.png' };
   for (const [from, to] of Object.entries(order)) fs.renameSync(path.join(SHOTS, `${from}.png`), path.join(SHOTS, to));
 
   // Imágenes promocionales
@@ -308,9 +332,9 @@ try {
     img{width:${big ? 190 : 92}px;height:${big ? 190 : 92}px;border-radius:${big ? 44 : 22}px;box-shadow:0 14px 40px rgba(0,0,0,.3)}
     h1{font-size:${big ? 78 : 38}px;font-weight:800;letter-spacing:-.02em;line-height:1}
     p{font-size:${big ? 30 : 16}px;font-weight:500;margin-top:${big ? 18 : 10}px;opacity:.92;line-height:1.3;max-width:${big ? 820 : 260}px}
-    .chips{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}.chips span{background:rgba(255,255,255,.18);padding:8px 16px;border-radius:999px;font-size:20px}</style></head>
+    .chips{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}.chips span{background:rgba(255,255,255,.18);padding:8px 16px;border-radius:999px;font-size:20px;display:inline-flex;align-items:center;gap:8px}</style></head>
     <body><img src="${logo}"><div><h1>Subme Now</h1><p>Transcripciones y resúmenes con IA para YouTube</p>
-    ${big ? '<div class="chips"><span>📜 Transcripción</span><span>✨ Resúmenes</span><span>⏱️ Capítulos</span><span>💬 Chat</span><span>📱 Shorts</span></div>' : ''}</div></body></html>`;
+    ${big ? `<div class="chips"><span>${ICON('transcript')} Transcripción</span><span>${ICON('sparkles')} Resúmenes</span><span>${ICON('mindmap')} Mapas mentales</span><span>${ICON('chat')} Chat</span><span>${ICON('phone')} Shorts</span></div>` : ''}</div></body></html>`;
   await promo.setViewportSize({ width: 440, height: 280 });
   await promo.setContent(promoHtml(440, 280, false));
   await promo.evaluate(() => document.fonts.ready);

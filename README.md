@@ -25,7 +25,7 @@ Sin servidores intermedios: la transcripción sale directo de YouTube y las cons
 | 🎯 Puntos clave | 7–15 puntos concretos en orden cronológico |
 | ⏱️ Capítulos | Índice con marcas de tiempo + bloque listo para pegar en la descripción de YouTube |
 | 📚 Apuntes | Notas de estudio con títulos, definiciones y glosario |
-| 🧠 Mapa mental | Jerarquía de ideas en lista anidada |
+| 🧠 Mapa mental | **Diagrama interactivo** estilo NotebookLM: ramas que se expanden y contraen, salto al video desde cada rama, pantalla completa y descarga PNG/SVG |
 | ❓ Quiz | 10 preguntas de opción múltiple con respuestas explicadas |
 | 🗂️ Flashcards | Tarjetas pregunta/respuesta + CSV para importar en **Anki** |
 | 💬 Citas | Frases textuales más memorables con su momento |
@@ -41,7 +41,7 @@ Sin servidores intermedios: la transcripción sale directo de YouTube y las cons
 Además:
 - **💬 Chat con el video**: haz preguntas y la IA responde usando la transcripción.
 - **Prompt libre**: escribe cualquier pedido sobre el video.
-- **Acciones personalizadas**: crea tus propios botones con tu prompt desde la configuración.
+- **Acciones personalizadas**: crea tus propios botones con tu prompt y elige su ícono de una galería.
 - **Cambio rápido de proveedor, modelo e idioma de respuesta desde el propio panel**, con la lista de modelos de tu cuenta y los usados recientemente.
 - Las respuestas se muestran **en streaming**, en Markdown, y **las marcas de tiempo son clicables** (saltan al momento del video).
 - Copiar o descargar cada resultado como `.md`, regenerar o detener.

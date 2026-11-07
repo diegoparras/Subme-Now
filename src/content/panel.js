@@ -11,28 +11,29 @@
     openrouter: 'openrouter/auto', openai: 'gpt-5-mini', grok: 'grok-4', anthropic: 'claude-opus-5-5', gemini: 'gemini-2.5-flash', custom: '',
   };
 
+  const I = (name, cls) => SubmeIcons.icon(name, cls);
   const TEMPLATE = `
 <div class="sn-wrap">
 <div class="sn-root">
   <header class="sn-header" data-act="toggle">
     <div class="sn-brand"><span class="sn-logo">S</span>Subme Now <span class="sn-sub" data-ref="sub"></span></div>
     <div class="sn-header-actions">
-      <button class="sn-icon-btn" data-act="settings" title="Configuración">⚙</button>
-      <button class="sn-icon-btn sn-chevron" data-act="toggle" title="Mostrar / ocultar">▾</button>
+      <button class="sn-icon-btn" data-act="settings" title="Configuración">${I('settings')}</button>
+      <button class="sn-icon-btn sn-chevron" data-act="toggle" title="Mostrar / ocultar">${I('chevronDown')}</button>
     </div>
   </header>
   <div class="sn-body" data-ref="body">
     <nav class="sn-tabs">
-      <button class="sn-tab active" data-tab="transcript">Transcripción</button>
-      <button class="sn-tab" data-tab="ai">✨ IA</button>
-      <button class="sn-tab" data-tab="chat">💬 Chat</button>
+      <button class="sn-tab active" data-tab="transcript">${I('transcript')}Transcripción</button>
+      <button class="sn-tab" data-tab="ai">${I('sparkles')}IA</button>
+      <button class="sn-tab" data-tab="chat">${I('chat')}Chat</button>
     </nav>
     <div class="sn-modelbar" data-ref="modelbar" hidden>
       <select class="sn-select sn-mini" data-ref="provsel" title="Proveedor de IA"></select>
       <input class="sn-input sn-mini sn-model" data-ref="modelin" list="sn-models" spellcheck="false" autocomplete="off" title="Modelo: escribe para buscar o elige de la lista">
       <datalist id="sn-models" data-ref="modellist"></datalist>
       <select class="sn-select sn-mini sn-rlang" data-ref="rlang" title="Idioma de las respuestas"></select>
-      <button class="sn-icon-btn sn-lock" data-act="unlock" data-ref="lockbtn" title="API keys bloqueadas: clic para desbloquear" hidden>🔒</button>
+      <button class="sn-icon-btn sn-lock" data-act="unlock" data-ref="lockbtn" title="API keys bloqueadas: clic para desbloquear" hidden>${I('lock')}</button>
     </div>
 
     <section class="sn-pane" data-pane="transcript">
@@ -41,11 +42,11 @@
         <input class="sn-input sn-search" data-ref="search" type="search" placeholder="Buscar en la transcripción…">
       </div>
       <div class="sn-toolbar">
-        <button class="sn-btn" data-act="ts" title="Mostrar u ocultar marcas de tiempo">🕒 Tiempos</button>
-        <button class="sn-btn" data-act="autoscroll" title="Seguir el video automáticamente">⇣ Seguir</button>
-        <button class="sn-btn" data-act="copy" title="Copiar la transcripción">📋 Copiar</button>
+        <button class="sn-btn" data-act="ts" title="Mostrar u ocultar marcas de tiempo">${I('clock')}Tiempos</button>
+        <button class="sn-btn" data-act="autoscroll" title="Seguir el video automáticamente">${I('follow')}Seguir</button>
+        <button class="sn-btn" data-act="copy" title="Copiar la transcripción">${I('copy')}Copiar</button>
         <div class="sn-dropdown">
-          <button class="sn-btn" data-act="dlmenu">⬇ Descargar ▾</button>
+          <button class="sn-btn" data-act="dlmenu">${I('download')}Descargar${I('chevronDown', 'sn-i-sm')}</button>
           <div class="sn-menu" data-ref="dlmenu" hidden>
             <button data-dl="txt">Texto con tiempos (.txt)</button>
             <button data-dl="plain">Texto sin tiempos (.txt)</button>
@@ -75,11 +76,11 @@
         <div class="sn-output-head">
           <span class="sn-output-title" data-ref="outtitle"></span>
           <div class="sn-output-tools">
-            <button class="sn-icon-btn" data-act="stop" title="Detener" hidden>⏹</button>
-            <button class="sn-icon-btn" data-act="regen" title="Regenerar">↻</button>
-            <button class="sn-icon-btn" data-act="copyout" title="Copiar">📋</button>
-            <button class="sn-icon-btn" data-act="dlout" title="Descargar .md">⬇</button>
-            <button class="sn-icon-btn" data-act="closeout" title="Cerrar">✕</button>
+            <button class="sn-icon-btn" data-act="stop" title="Detener" hidden>${I('stop')}</button>
+            <button class="sn-icon-btn" data-act="regen" title="Regenerar">${I('refresh')}</button>
+            <button class="sn-icon-btn" data-act="copyout" title="Copiar">${I('copy')}</button>
+            <button class="sn-icon-btn" data-act="dlout" title="Descargar .md">${I('download')}</button>
+            <button class="sn-icon-btn" data-act="closeout" title="Cerrar">${I('close')}</button>
           </div>
         </div>
         <div class="sn-output md" data-ref="output"></div>
@@ -204,7 +205,8 @@
         if (this.settings.autoSummary && this.hasKey() && !choice) this.runAction(P.ACTIONS[0]);
       } catch (e) {
         if (token !== this.loadToken) return;
-        this.setStatus(e.message, true, true);
+        if (e.code === 'NO_CAPTIONS') this.setInfo(e.message);
+        else this.setStatus(e.message, true, true, e.detail);
         this.renderLanguages();
       } finally {
         if (token === this.loadToken) this.loading = false;
@@ -426,7 +428,7 @@
         case 'free': {
           const text = this.refs.free.value.trim();
           if (!text) return;
-          this.runAction({ id: `free-${Date.now()}`, icon: '✨', label: text.length > 50 ? `${text.slice(0, 50)}…` : text, prompt: text, noCache: true });
+          this.runAction({ id: `free-${Date.now()}`, icon: 'sparkles', label: text.length > 50 ? `${text.slice(0, 50)}…` : text, prompt: text, noCache: true });
           break;
         }
         case 'stop':
@@ -491,12 +493,21 @@
       this.refs.search.value = '';
     }
 
-    setStatus(msg, isError = false, retry = false) {
+    setStatus(msg, isError = false, retry = false, detail = '') {
       const s = this.refs.status;
       s.classList.toggle('error', isError);
-      s.innerHTML = msg ? `${isError ? '⚠ ' : '<span class="sn-spinner" style="display:inline-block;vertical-align:-2px;margin-right:6px"></span>'}${U.escapeHtml(msg)}` : '';
+      s.innerHTML = msg ? `${isError ? I('alert') : '<span class="sn-spinner" style="display:inline-block;vertical-align:-2px;margin-right:6px"></span>'}${U.escapeHtml(msg)}` : '';
       if (retry) s.insertAdjacentHTML('beforeend', ' <button class="sn-link" data-act="retry">Reintentar</button>');
+      if (detail) s.insertAdjacentHTML('beforeend', `<details class="sn-detail"><summary>Detalles técnicos</summary>${U.escapeHtml(detail)}</details>`);
       s.hidden = !msg;
+    }
+
+    /** Aviso informativo (no es un error): p. ej. un video sin subtítulos. */
+    setInfo(msg) {
+      const s = this.refs.status;
+      s.classList.remove('error');
+      s.innerHTML = `<div class="sn-info">${I('info')} ${U.escapeHtml(msg)}<div class="sn-info-sub">Prueba con otro video o activa los subtítulos automáticos si el video es tuyo.</div></div>`;
+      s.hidden = false;
     }
 
     renderLanguages() {
@@ -528,7 +539,10 @@
         }
       }
       sel.innerHTML = html;
-      sel.value = this.selectedLang || '';
+      // Si la pista elegida no está en la lista (p. ej. tras un error), mostrar la primera en vez de dejarlo vacío.
+      const exists = [...sel.options].some((o) => o.value === (this.selectedLang || ''));
+      if (exists) sel.value = this.selectedLang || '';
+      else sel.selectedIndex = 0;
     }
 
     renderSegments() {
@@ -624,7 +638,7 @@
     }
 
     lockedHtml(message) {
-      return `<div class="sn-notice">🔒 ${U.escapeHtml(message || 'Tus API keys están protegidas con contraseña.')}
+      return `<div class="sn-notice">${I('lock')} ${U.escapeHtml(message || 'Tus API keys están protegidas con contraseña.')}
         <div style="margin-top:8px"><button class="sn-btn primary" data-act="unlock">Desbloquear</button></div></div>`;
     }
 
@@ -662,7 +676,7 @@
     allActions() {
       const custom = (this.settings.customActions || [])
         .filter((a) => a && a.label && a.prompt)
-        .map((a, i) => ({ id: `custom-${i}`, icon: a.icon || '⭐', label: a.label, desc: 'Acción personalizada', prompt: a.prompt }));
+        .map((a, i) => ({ id: `custom-${i}`, icon: SubmeIcons.has(a.icon) ? a.icon : 'star', label: a.label, desc: 'Acción personalizada', prompt: a.prompt }));
       return [...P.ACTIONS, ...custom];
     }
 
@@ -673,7 +687,7 @@
     renderActions() {
       this.refs.actions.innerHTML = this.allActions().map((a) => `
         <button class="sn-action${this.currentAction?.id === a.id ? ' active' : ''}" data-action="${U.escapeHtml(a.id)}" title="${U.escapeHtml(a.desc || a.label)}">
-          <span class="sn-action-label">${U.escapeHtml(a.icon)} ${U.escapeHtml(a.label)}${this.results.has(a.id) ? '<span class="sn-action-done">✓</span>' : ''}</span>
+          <span class="sn-action-label">${I(a.icon)}<span>${U.escapeHtml(a.label)}</span>${this.results.has(a.id) ? '<span class="sn-action-done">✓</span>' : ''}</span>
         </button>`).join('');
     }
 
@@ -712,11 +726,11 @@
       this.renderActions();
       const out = this.refs.output;
       this.refs.outwrap.hidden = false;
-      this.refs.outtitle.textContent = `${action.icon || '✨'} ${action.label}`;
+      this.refs.outtitle.innerHTML = `${I(action.icon || 'sparkles')}<span>${U.escapeHtml(action.label)}</span>`;
       requestAnimationFrame(() => this.refs.outwrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
 
       if (!force && !action.noCache && this.results.has(action.id)) {
-        out.innerHTML = MD.render(this.results.get(action.id));
+        this.renderResult(action, this.results.get(action.id));
         return;
       }
 
@@ -738,13 +752,16 @@
             pending = true;
             requestAnimationFrame(() => {
               pending = false;
-              if (!finished && this.currentAction === action) out.innerHTML = MD.render(full) + '<div class="sn-progress"><span class="sn-spinner"></span></div>';
+              if (finished || this.currentAction !== action) return;
+              out.innerHTML = action.view === 'mindmap'
+                ? `<div class="sn-progress"><span class="sn-spinner"></span>Construyendo el mapa mental… (${full.split('\n').filter((l) => l.trim()).length} ideas)</div>`
+                : MD.render(full) + '<div class="sn-progress"><span class="sn-spinner"></span></div>';
             });
           },
         );
         const r = await this.stream.promise.finally(() => { finished = true; });
         if (this.currentAction !== action) return;
-        out.innerHTML = MD.render(r.text) + (r.notice ? `<div class="sn-foot-note">${U.escapeHtml(r.notice)}</div>` : '');
+        this.renderResult(action, r.text, r.notice);
         this.lastOutput = r.text;
         if (r.text && !r.aborted && !action.noCache) this.results.set(action.id, r.text);
         this.renderActions();
@@ -752,11 +769,58 @@
         if (this.currentAction === action) {
           if (e.code === 'LOCKED') this.refreshSettings();
           out.innerHTML = e.aborted ? '<div class="sn-foot-note">Generación detenida.</div>'
-            : e.code === 'LOCKED' ? this.lockedHtml(e.message) : `<div class="sn-error">⚠ ${U.escapeHtml(e.message)}</div>`;
+            : e.code === 'LOCKED' ? this.lockedHtml(e.message) : `<div class="sn-error">${I('alert')} ${U.escapeHtml(e.message)}</div>`;
         }
       } finally {
         if (this.currentAction === action) stopBtn.hidden = true;
       }
+    }
+
+    /** Muestra el resultado de una acción: Markdown, o diagrama si es un mapa mental. */
+    renderResult(action, text, notice = '') {
+      const out = this.refs.output;
+      const note = notice ? `<div class="sn-foot-note">${U.escapeHtml(notice)}</div>` : '';
+      const tree = action.view === 'mindmap' ? SN.mindmap.parse(text, this.video?.title) : null;
+      if (!tree) { out.innerHTML = MD.render(text) + note; return; }
+      out.innerHTML = `<div class="mm-switch"><button data-view="diagram" class="on">Diagrama</button><button data-view="text">Texto</button></div>
+        <div class="mm-host"></div><div class="md mm-text" hidden>${MD.render(text)}</div>${note}`;
+      const host = out.querySelector('.mm-host');
+      const opts = {
+        dark: this.host.getAttribute('data-theme') === 'dark',
+        title: this.video?.title,
+        onSeek: (t) => this.seek(t),
+        onError: (m) => this.toast(m),
+        onFullscreen: () => this.openMindmapFullscreen(tree, () => inline.redraw()),
+      };
+      const inline = SN.mindmap.mount(host, tree, opts);
+      out.querySelector('.mm-switch').addEventListener('click', (e) => {
+        const v = e.target.closest('[data-view]')?.dataset.view;
+        if (!v) return;
+        out.querySelectorAll('.mm-switch button').forEach((b) => b.classList.toggle('on', b.dataset.view === v));
+        host.hidden = v !== 'diagram';
+        out.querySelector('.mm-text').hidden = v !== 'text';
+      });
+    }
+
+    openMindmapFullscreen(tree, onClose) {
+      const overlay = document.createElement('div');
+      overlay.className = 'mm-overlay';
+      overlay.innerHTML = `<div class="mm-overlay-card">
+        <div class="mm-overlay-head"><span class="sn-output-title">${I('mindmap')}<span>${U.escapeHtml(this.video?.title || 'Mapa mental')}</span></span>
+        <button class="sn-icon-btn" data-close title="Cerrar (Esc)">${I('close')}</button></div>
+        <div class="mm-overlay-body"></div></div>`;
+      this.shadow.querySelector('.sn-wrap').appendChild(overlay);
+      const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey, true); onClose?.(); };
+      const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+      document.addEventListener('keydown', onKey, true);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay || e.target.closest('[data-close]')) close(); });
+      SN.mindmap.mount(overlay.querySelector('.mm-overlay-body'), tree, {
+        fill: true,
+        dark: this.host.getAttribute('data-theme') === 'dark',
+        title: this.video?.title,
+        onSeek: (t) => this.seek(t),
+        onError: (m) => this.toast(m),
+      });
     }
 
     /* ---------- chat ---------- */
@@ -769,7 +833,7 @@
       } else {
         log.innerHTML = this.chat.map((m) => (m.role === 'user'
           ? `<div class="sn-msg user">${U.escapeHtml(m.content)}</div>`
-          : `<div class="sn-msg assistant md">${m.locked ? this.lockedHtml(m.error) : m.error ? `<div class="sn-error">⚠ ${U.escapeHtml(m.error)}</div>` : MD.render(m.content) || '<div class="sn-progress"><span class="sn-spinner"></span>Pensando…</div>'}</div>`)).join('');
+          : `<div class="sn-msg assistant md">${m.locked ? this.lockedHtml(m.error) : m.error ? `<div class="sn-error">${I('alert')} ${U.escapeHtml(m.error)}</div>` : MD.render(m.content) || '<div class="sn-progress"><span class="sn-spinner"></span>Pensando…</div>'}</div>`)).join('');
         this.refs.suggestions.innerHTML = '';
       }
       log.scrollTop = log.scrollHeight;

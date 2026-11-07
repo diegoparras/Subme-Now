@@ -29,7 +29,7 @@ TRANSCRIPCIÓN (gratis, sin cuenta)
 • Copia o descarga el texto o los subtítulos en varios formatos.
 
 ACCIONES CON IA
-Con un clic puedes obtener un resumen, los puntos clave, capítulos con marcas de tiempo, apuntes de estudio, un mapa mental, un cuestionario, tarjetas de estudio, citas destacadas, los pasos de un tutorial, las afirmaciones que conviene verificar, una explicación sencilla, borradores para redes sociales o un artículo, la transcripción limpia o una traducción completa.
+Con un clic puedes obtener un resumen, los puntos clave, capítulos con marcas de tiempo, apuntes de estudio, un mapa mental interactivo, un cuestionario, tarjetas de estudio, citas destacadas, los pasos de un tutorial, las afirmaciones que conviene verificar, una explicación sencilla, borradores para redes sociales o un artículo, la transcripción limpia o una traducción completa.
 
 Las marcas de tiempo de cada respuesta son clicables y te llevan directo a ese momento del video. También puedes crear tus propias acciones o escribir cualquier pedido.
 
@@ -71,7 +71,7 @@ TRANSCRIPT (free, no account)
 • Copy or download the text or captions in several formats.
 
 AI ACTIONS
-With one click you get a summary, key points, timestamped chapters, study notes, a mind map, a quiz, flashcards, notable quotes, tutorial steps, claims worth fact-checking, a simple explanation, social media or blog drafts, a clean transcript or a full translation.
+With one click you get a summary, key points, timestamped chapters, study notes, an interactive mind map, a quiz, flashcards, notable quotes, tutorial steps, claims worth fact-checking, a simple explanation, social media or blog drafts, a clean transcript or a full translation.
 
 Timestamps in every answer are clickable and take you straight to that moment. You can also create your own actions or type any request.
 

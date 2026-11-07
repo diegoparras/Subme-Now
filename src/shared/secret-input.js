@@ -24,9 +24,9 @@
   const GRID = 5;
   const MIN = { password: 8, images: 6, pattern: 6 };
   const METHODS = {
-    password: { label: 'Contraseña', icon: '🔤' },
-    images: { label: 'Imágenes', icon: '🖼️' },
-    pattern: { label: 'Patrón', icon: '⋮⋮' },
+    password: { label: 'Contraseña', icon: 'key' },
+    images: { label: 'Imágenes', icon: 'image' },
+    pattern: { label: 'Patrón', icon: 'pattern' },
   };
 
   function shuffled(arr) {
@@ -89,7 +89,7 @@
       grid.className = 'sn-secret-images';
       const tools = document.createElement('div');
       tools.className = 'sn-secret-tools';
-      tools.innerHTML = '<button type="button" data-k="undo">↶ Deshacer</button><button type="button" data-k="clear">Borrar</button>';
+      tools.innerHTML = `<button type="button" data-k="undo">${root.SubmeIcons ? root.SubmeIcons.icon('undo') : ''}Deshacer</button><button type="button" data-k="clear">Borrar</button>`;
       container.append(progress, grid, tools);
 
       const render = () => {
@@ -108,7 +108,7 @@
         grid.appendChild(b);
       }
       tools.addEventListener('click', (e) => {
-        const k = e.target.dataset.k;
+        const k = e.target.closest('[data-k]')?.dataset.k;
         if (k === 'undo') seq.pop();
         if (k === 'clear') seq = [];
         render();

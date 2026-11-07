@@ -14,7 +14,7 @@
 
   const ACTIONS = [
     {
-      id: 'summary', icon: '📝', label: 'Resumen', desc: 'TL;DR + resumen estructurado',
+      id: 'summary', icon: 'summary', label: 'Resumen', desc: 'TL;DR + resumen estructurado',
       prompt: `Resume el video.
 
 Usa exactamente esta estructura:
@@ -30,29 +30,35 @@ Viñetas con las ideas más importantes. ${TS_RULE}
 La conclusión o mensaje final del video.`,
     },
     {
-      id: 'keypoints', icon: '🎯', label: 'Puntos clave', desc: 'Lo esencial en viñetas',
+      id: 'keypoints', icon: 'target', label: 'Puntos clave', desc: 'Lo esencial en viñetas',
       prompt: `Extrae entre 7 y 15 puntos clave del video, en orden cronológico. Cada punto debe ser una viñeta autocontenida y concreta (datos, cifras, nombres, argumentos). ${TS_RULE}`,
     },
     {
-      id: 'chapters', icon: '⏱️', label: 'Capítulos', desc: 'Índice con marcas de tiempo',
+      id: 'chapters', icon: 'chapters', label: 'Capítulos', desc: 'Índice con marcas de tiempo',
       prompt: `Divide el video en capítulos lógicos (entre 4 y 15 según la duración). Para cada capítulo usa una viñeta con el formato:
 - [mm:ss] **Título breve** — una frase que describa el contenido.
 El primer capítulo debe empezar en [00:00]. Al final agrega un bloque de código con la lista "mm:ss Título" lista para pegar en la descripción de YouTube.`,
     },
     {
-      id: 'notes', icon: '📚', label: 'Apuntes', desc: 'Notas de estudio detalladas',
+      id: 'notes', icon: 'notes', label: 'Apuntes', desc: 'Notas de estudio detalladas',
       prompt: `Crea apuntes de estudio completos del video, como si fueran para preparar un examen. Organízalos con títulos (##) y subtítulos (###), viñetas, definiciones en **negrita**, ejemplos y fórmulas o datos relevantes. Termina con una sección "## Glosario" con los términos técnicos y su definición. ${TS_RULE}`,
     },
     {
-      id: 'mindmap', icon: '🧠', label: 'Mapa mental', desc: 'Jerarquía de ideas',
-      prompt: `Construye un mapa mental del video como una lista anidada de Markdown (tema central → ramas principales → sub-ideas → detalles), con un máximo de 4 niveles y frases muy cortas. Empieza con el tema central en **negrita** como primer elemento.`,
+      id: 'mindmap', icon: 'mindmap', label: 'Mapa mental', desc: 'Diagrama de ideas interactivo', view: 'mindmap',
+      prompt: `Construye un mapa mental del video. Responde ÚNICAMENTE con una lista anidada de Markdown, sin texto antes ni después, con este formato exacto:
+- Tema central del video (2 a 6 palabras)
+  - Rama principal [mm:ss]
+    - Idea secundaria
+      - Detalle
+
+Reglas: un solo elemento sin sangría (el tema central); entre 4 y 7 ramas principales; sangría de 2 espacios por nivel; máximo 4 niveles; cada elemento con 2 a 8 palabras, sin oraciones largas ni punto final; agrega al final de cada rama principal la marca de tiempo [mm:ss] donde empieza ese tema en la transcripción.`,
     },
     {
-      id: 'quiz', icon: '❓', label: 'Quiz', desc: 'Preguntas para autoevaluarte',
+      id: 'quiz', icon: 'quiz', label: 'Quiz', desc: 'Preguntas para autoevaluarte',
       prompt: `Crea un quiz de 10 preguntas de opción múltiple sobre el video (4 opciones, A-D, una sola correcta), de dificultad progresiva. Numera las preguntas. Al final agrega una sección "## Respuestas" con la letra correcta de cada pregunta, una breve explicación y la marca de tiempo donde se trata [mm:ss].`,
     },
     {
-      id: 'flashcards', icon: '🗂️', label: 'Flashcards', desc: 'Tarjetas pregunta/respuesta',
+      id: 'flashcards', icon: 'flashcards', label: 'Flashcards', desc: 'Tarjetas pregunta/respuesta',
       prompt: `Crea entre 10 y 20 flashcards para memorizar el contenido del video. Formato para cada una:
 **P:** pregunta
 **R:** respuesta breve
@@ -60,15 +66,15 @@ El primer capítulo debe empezar en [00:00]. Al final agrega un bloque de códig
 Después, agrega un bloque de código con las mismas tarjetas en formato CSV "pregunta;respuesta" para importar en Anki.`,
     },
     {
-      id: 'quotes', icon: '💬', label: 'Citas', desc: 'Frases destacadas textuales',
+      id: 'quotes', icon: 'quote', label: 'Citas', desc: 'Frases destacadas textuales',
       prompt: `Extrae entre 5 y 10 de las frases más memorables, impactantes o citables del video, de forma textual (corrigiendo solo errores evidentes de la transcripción automática). Usa citas en bloque (>) y agrega la marca de tiempo [mm:ss] y una línea sobre por qué es relevante.`,
     },
     {
-      id: 'steps', icon: '✅', label: 'Pasos y acciones', desc: 'Tutorial paso a paso / tareas',
+      id: 'steps', icon: 'steps', label: 'Pasos y acciones', desc: 'Tutorial paso a paso / tareas',
       prompt: `Si el video es un tutorial o enseña un proceso, conviértelo en una guía paso a paso numerada, con requisitos previos, herramientas o materiales necesarios y advertencias. Si no lo es, extrae las recomendaciones y acciones concretas que el espectador puede aplicar, como una lista de tareas (- [ ]). ${TS_RULE}`,
     },
     {
-      id: 'factcheck', icon: '🔍', label: 'Afirmaciones', desc: 'Datos a verificar y sesgos',
+      id: 'factcheck', icon: 'factcheck', label: 'Afirmaciones', desc: 'Datos a verificar y sesgos',
       prompt: `Analiza críticamente el video:
 ## Afirmaciones verificables
 Lista las afirmaciones factuales importantes (cifras, estudios, hechos) con su marca de tiempo [mm:ss] e indica, según tu conocimiento, si parecen correctas, dudosas o incorrectas, y por qué. Aclara que es una evaluación preliminar.
@@ -76,27 +82,27 @@ Lista las afirmaciones factuales importantes (cifras, estudios, hechos) con su m
 ## Posibles sesgos o información faltante`,
     },
     {
-      id: 'eli5', icon: '🧒', label: 'Explicar fácil', desc: 'Como si tuviera 12 años',
+      id: 'eli5', icon: 'lightbulb', label: 'Explicar fácil', desc: 'Como si tuviera 12 años',
       prompt: 'Explica el contenido del video de forma muy sencilla, como para alguien de 12 años: usa lenguaje cotidiano, analogías y ejemplos. Máximo 400 palabras.',
     },
     {
-      id: 'thread', icon: '🧵', label: 'Hilo para X', desc: 'Hilo listo para publicar',
+      id: 'thread', icon: 'thread', label: 'Hilo para X', desc: 'Hilo listo para publicar',
       prompt: 'Escribe un hilo para X/Twitter de 6 a 10 publicaciones que resuma el video de forma atractiva. Numera cada publicación (1/, 2/…), máximo 270 caracteres cada una, la primera con un gancho fuerte y la última con una conclusión. Sin hashtags excesivos.',
     },
     {
-      id: 'linkedin', icon: '💼', label: 'Post LinkedIn', desc: 'Publicación profesional',
+      id: 'linkedin', icon: 'briefcase', label: 'Post LinkedIn', desc: 'Publicación profesional',
       prompt: 'Escribe una publicación para LinkedIn (150-250 palabras) basada en el video: gancho inicial, 3-5 aprendizajes en viñetas, una reflexión personal y una pregunta final para generar conversación. Agrega 3 hashtags relevantes.',
     },
     {
-      id: 'blog', icon: '✍️', label: 'Artículo de blog', desc: 'Post optimizado para SEO',
+      id: 'blog', icon: 'pen', label: 'Artículo de blog', desc: 'Post optimizado para SEO',
       prompt: 'Convierte el video en un artículo de blog bien escrito (800-1200 palabras) con título atractivo (#), introducción, secciones con subtítulos (##), conclusión y una meta-descripción SEO de máximo 155 caracteres al final. No lo escribas como transcripción: redáctalo como un artículo original.',
     },
     {
-      id: 'clean', icon: '🧹', label: 'Texto limpio', desc: 'Transcripción con puntuación',
+      id: 'clean', icon: 'wand', label: 'Texto limpio', desc: 'Transcripción con puntuación',
       prompt: 'Reescribe la transcripción como un texto limpio y legible: agrega puntuación y mayúsculas, separa en párrafos, elimina muletillas y repeticiones, y corrige errores evidentes del reconocimiento automático, sin resumir ni cambiar el significado. Coloca la marca de tiempo [mm:ss] al inicio de cada párrafo.',
     },
     {
-      id: 'translate', icon: '🌐', label: 'Traducir', desc: 'Traducción completa',
+      id: 'translate', icon: 'translate', label: 'Traducir', desc: 'Traducción completa',
       prompt: 'Traduce la transcripción completa al idioma de respuesta indicado, de forma natural y fiel, agrupada en párrafos. Coloca la marca de tiempo [mm:ss] al inicio de cada párrafo. No resumas.',
     },
   ];

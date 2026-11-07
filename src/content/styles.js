@@ -45,6 +45,14 @@
 :host([data-mode="float"]) .sn-output { max-height: none; }
 :host([data-mode="float"]) .sn-root.collapsed { width: max-content; margin-left: auto; }
 * { box-sizing: border-box; }
+.sn-i { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
+.sn-i-sm { width: 13px; height: 13px; opacity: .7; }
+.sn-icon-btn .sn-i { width: 17px; height: 17px; }
+.sn-tab { display: inline-flex; align-items: center; gap: 6px; }
+.sn-output-title { display: inline-flex; align-items: center; gap: 7px; }
+.sn-output-title .sn-i { color: var(--sn-accent); }
+.sn-notice .sn-i, .sn-info .sn-i { color: var(--sn-accent); margin-right: 2px; }
+.sn-error .sn-i, .sn-status.error .sn-i { margin-right: 4px; }
 [hidden] { display: none !important; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -116,6 +124,10 @@ button { cursor: pointer; }
 
 .sn-status { color: var(--sn-fg-2); font-size: 13px; padding: 6px 2px; }
 .sn-status.error { color: var(--sn-danger); }
+.sn-info { background: var(--sn-bg-2); border: 1px solid var(--sn-border); border-radius: 10px; padding: 10px 12px; color: var(--sn-fg); }
+.sn-info-sub { color: var(--sn-fg-2); font-size: 12.5px; margin-top: 4px; }
+.sn-detail { margin-top: 6px; color: var(--sn-fg-2); font-size: 12px; }
+.sn-detail summary { cursor: pointer; }
 .sn-meta { color: var(--sn-fg-2); font-size: 12px; margin: 0 2px 6px; display: flex; justify-content: space-between; gap: 8px; }
 
 .sn-segments { max-height: 440px; overflow-y: auto; border-radius: 8px; scroll-behavior: auto; }
@@ -145,7 +157,8 @@ mark { background: var(--sn-hl); color: inherit; border-radius: 3px; padding: 0 
 }
 .sn-action:hover { border-color: var(--sn-accent); background: var(--sn-accent-soft); }
 .sn-action.active { border-color: var(--sn-accent); box-shadow: inset 0 0 0 1px var(--sn-accent); }
-.sn-action-label { font-weight: 500; font-size: 13px; }
+.sn-action-label { font-weight: 500; font-size: 13px; display: flex; align-items: center; gap: 7px; }
+.sn-action-label .sn-i { color: var(--sn-accent); width: 15px; height: 15px; }
 .sn-action-desc { display: none; }
 .sn-action-done { color: var(--sn-accent); font-size: 11px; margin-left: 2px; }
 
@@ -190,6 +203,24 @@ a.sn-ts {
   font-variant-numeric: tabular-nums; font-size: .92em; font-weight: 500; white-space: nowrap;
 }
 a.sn-ts:hover { text-decoration: underline; }
+
+/* Mapa mental */
+.mm-switch { display: inline-flex; border: 1px solid var(--sn-border); border-radius: 8px; overflow: hidden; margin: 8px 0; }
+.mm-switch button { border: 0; background: transparent; padding: 4px 12px; font-size: 12.5px; color: var(--sn-fg-2); }
+.mm-switch button.on { background: var(--sn-accent-soft); color: var(--sn-accent); font-weight: 500; }
+.mm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 6px; }
+.mm-bar button { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--sn-border); background: var(--sn-bg-2); border-radius: 7px; padding: 3px 8px; font-size: 12px; color: var(--sn-fg); }
+.mm-bar button:hover { border-color: var(--sn-accent); color: var(--sn-accent); }
+.mm-bar .sn-i { width: 13px; height: 13px; }
+.mm-sep { width: 1px; height: 16px; background: var(--sn-border); margin: 0 2px; }
+.mm-view { overflow: auto; max-height: 520px; border: 1px solid var(--sn-border); border-radius: 10px; background: var(--sn-bg); padding: 2px; }
+.mm-view svg { display: block; }
+.mm-node:hover rect:first-child { stroke-width: 2; }
+.mm-overlay { position: fixed; inset: 0; z-index: 2147483000; background: rgba(10, 10, 14, .55); display: grid; place-items: center; padding: 24px; }
+.mm-overlay-card { background: var(--sn-bg); border: 1px solid var(--sn-border); border-radius: 14px; width: min(1400px, 100%); height: 100%; display: flex; flex-direction: column; padding: 12px 14px; box-shadow: 0 20px 60px rgba(0,0,0,.4); }
+.mm-overlay-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.mm-overlay-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.mm-overlay-body .mm-view { flex: 1; max-height: none; display: grid; place-items: center; }
 
 /* Chat */
 .sn-chat-log { max-height: 440px; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px; }

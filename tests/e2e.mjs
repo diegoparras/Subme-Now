@@ -16,6 +16,8 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const VIDEO_ID = 'abc123XYZ00';
 const results = [];
+let failInnertube = false;
+const timedtextRequests = [];
 const check = (name, ok, extra = '') => { results.push({ name, ok }); console.log(`${ok ? '✓' : '✗'} ${name}${extra ? ` — ${extra}` : ''}`); };
 
 // ---------- API de IA falsa (compatible con OpenAI) ----------
@@ -36,7 +38,18 @@ const server = http.createServer((req, res) => {
     requests.push(json);
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
     const last = json.messages.at(-1).content;
-    const answer = last.includes('OK') ? 'OK'
+    const answer = last.includes('mapa mental') ? [
+      '- Aprender idiomas en 6 meses',
+      '  - Exposición diaria [01:12]',
+      '    - Podcasts',
+      '    - Series con subtítulos',
+      '  - Hablar desde el día uno [02:30]',
+      '    - Perder el miedo',
+      '      - Intercambio de idiomas',
+      '  - Repetición espaciada [04:05]',
+      '    - 20 palabras por día',
+      '  - Rutina diaria [08:30]',
+    ].join('\n') : last.includes('OK') ? 'OK'
       : `**TL;DR:** Un video de prueba.\n\n## Ideas principales\n- Saludo inicial [00:00]\n- Tema central [00:08]\n\n| A | B |\n|---|---|\n| 1 | 2 |`;
     for (const piece of answer.match(/[\s\S]{1,12}/g)) {
       res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: piece } }] })}\n\n`);
@@ -126,9 +139,26 @@ try {
   // YouTube simulado
   await context.route('https://www.youtube.com/**', async (route) => {
     const url = route.request().url();
+    if (url.includes('/api/timedtext')) {
+      // Como YouTube real: sin el token "pot" del reproductor devuelve una respuesta vacía.
+      timedtextRequests.push(url);
+      if (!new URL(url).searchParams.get('pot')) return route.fulfill({ contentType: 'application/json', body: '' });
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ events: [
+        { tStartMs: 0, dDurationMs: 2000, segs: [{ utf8: 'Cuando me dicen' }] },
+        { tStartMs: 2000, dDurationMs: 2000, segs: [{ utf8: 'que soy muy grande' }] },
+      ] }) });
+    }
+    if (url.includes('/youtubei/v1/player')) return route.fulfill({ status: 400, body: '' });
+    if (url.includes('/youtubei/v1/get_transcript') && failInnertube) return route.fulfill({ status: 400, body: '{}' });
     if (url.includes('/youtubei/v1/get_transcript')) {
       const body = JSON.parse(route.request().postData());
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify(transcriptResponse(body.params === 'PARAMS_EN' ? 'en' : 'es')) });
+    }
+    if (url.includes('NOSUBS0001')) {
+      const noSubs = watchHtml
+        .replace(JSON.stringify(playerResponse), JSON.stringify({ videoDetails: { videoId: 'NOSUBS0001', title: 'Sin subtítulos', author: 'Canal', lengthSeconds: '60' } }))
+        .replace(JSON.stringify(initialData), '{}');
+      return route.fulfill({ contentType: 'text/html', body: noSubs });
     }
     if (url.includes('/watch')) return route.fulfill({ contentType: 'text/html', body: watchHtml });
     return route.fulfill({ status: 404, body: '' });
@@ -136,7 +166,7 @@ try {
 
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(e.message));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('console', (m) => { if (m.type() === 'error' && !m.text().startsWith('Failed to load resource')) errors.push(m.text()); });
   await page.goto(`https://www.youtube.com/watch?v=${VIDEO_ID}`);
 
   const host = page.locator('#subme-now-host');
@@ -202,6 +232,38 @@ try {
   check('El prompt incluye transcripción con tiempos', sys.includes('[00:00] Hello everyone welcome to the video today we talk about extensions') && sys.includes('Video de prueba'));
   await page.locator('#subme-now-host .sn-output a.sn-ts', { hasText: '00:08' }).click();
   check('Marca de tiempo de la IA es clicable', (await page.evaluate(() => document.querySelector('video').currentTime)) === 8);
+
+  // Mapa mental como diagrama
+  await page.locator('#subme-now-host [data-action="mindmap"]').click();
+  await page.locator('#subme-now-host .mm-view svg').waitFor({ timeout: 10000 });
+  const mmNodes = () => page.locator('#subme-now-host .mm-node').count();
+  const n1 = await mmNodes();
+  check('Mapa mental: se dibuja como diagrama', n1 >= 8, `${n1} nodos`);
+  const rootText = await page.locator('#subme-now-host .mm-node').first().textContent();
+  check('Mapa mental: tema central correcto', rootText.includes('Aprender idiomas'));
+  await page.locator('#subme-now-host [data-mm="expand"]').click();
+  const n2 = await mmNodes();
+  await page.locator('#subme-now-host [data-mm="collapse"]').click();
+  const n3 = await mmNodes();
+  check('Mapa mental: expandir y contraer', n2 > n1 && n3 < n2, `${n1} → ${n2} → ${n3}`);
+  await page.locator('#subme-now-host .mm-node', { hasText: 'Hablar desde el día uno' }).click();
+  check('Mapa mental: clic en una rama salta al video', (await page.evaluate(() => document.querySelector('video').currentTime)) === 150);
+  await page.locator('#subme-now-host .mm-toggle').nth(1).click();
+  check('Mapa mental: el botón de la rama la expande', (await mmNodes()) > n3);
+  await page.locator('#subme-now-host .mm-switch [data-view="text"]').click();
+  check('Mapa mental: vista de texto disponible', await page.locator('#subme-now-host .mm-text').isVisible());
+  await page.locator('#subme-now-host .mm-switch [data-view="diagram"]').click();
+  await page.locator('#subme-now-host [data-mm="full"]').click();
+  await page.locator('#subme-now-host .mm-overlay .mm-view svg').waitFor({ timeout: 5000 });
+  await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'subme-e2e-mindmap-full.png') });
+  await page.keyboard.press('Escape');
+  check('Mapa mental: pantalla completa abre y cierra con Esc', (await page.locator('#subme-now-host .mm-overlay').count()) === 0);
+  await page.locator('#subme-now-host .sn-output-wrap').screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'subme-e2e-mindmap.png') });
+  const [svgDl] = await Promise.all([page.waitForEvent('download'), page.locator('#subme-now-host [data-mm="svg"]').first().click()]);
+  check('Mapa mental: descarga SVG', svgDl.suggestedFilename().endsWith('mapa mental.svg') && fs.readFileSync(await svgDl.path(), 'utf8').startsWith('<svg'));
+  const [pngDl] = await Promise.all([page.waitForEvent('download'), page.locator('#subme-now-host [data-mm="png"]').first().click()]);
+  const pngBuf = fs.readFileSync(await pngDl.path());
+  check('Mapa mental: descarga PNG', pngBuf.slice(1, 4).toString() === 'PNG');
 
   // Cambio de modelo desde el panel
   const bar = page.locator('#subme-now-host [data-ref="modelbar"]');
@@ -325,7 +387,7 @@ try {
   await opts.waitForFunction(() => document.querySelector('#vMsg')?.textContent.includes('cambiado'), null, { timeout: 15000 });
   check('Imágenes: método cambiado', (await opts.evaluate(async () => (await SubmeVault.status()).method)) === 'images');
   await lockFromOptions();
-  check('Imágenes: bloqueado no llama a la IA', await expectLockedInPanel('mindmap'));
+  check('Imágenes: bloqueado no llama a la IA', await expectLockedInPanel('notes'));
   {
     const { popup } = await unlockVia();
     await clickImages(popup, '#secret', [...IMG_SEQ].reverse());
@@ -335,7 +397,7 @@ try {
     await clickImages(popup, '#secret', IMG_SEQ);
     await Promise.all([popup.waitForEvent('close', { timeout: 15000 }), popup.click('#submit')]);
   }
-  check('Imágenes: desbloqueadas, la IA funciona', await expectWorksInPanel('mindmap'));
+  check('Imágenes: desbloqueadas, la IA funciona', await expectWorksInPanel('notes'));
 
   // 3) Cambiar a patrón
   await opts.bringToFront();
@@ -400,6 +462,35 @@ try {
   check('Shorts: se puede contraer', await page.locator('#subme-now-host [data-ref="body"]').isHidden());
   await page.locator('#subme-now-host [data-act="toggle"].sn-chevron').click();
 
+  // Short donde la API interna falla (HTTP 400) y las pistas exigen el token del reproductor,
+  // como en el caso real reportado. El reproductor simulado pide los subtítulos con "pot".
+  failInnertube = true;
+  await page.evaluate(() => {
+    const host = document.querySelector('ytd-reel-video-renderer[is-active]');
+    const p = document.createElement('div');
+    p.id = 'shorts-player';
+    p.style.cssText = 'width:10px;height:10px';
+    let track = {};
+    p.getOption = () => track;
+    p.loadModule = () => {};
+    p.unloadModule = () => { track = {}; };
+    p.setOption = (mod, key, val) => {
+      if (key !== 'track') return;
+      track = val || {};
+      if (track.languageCode) fetch(`/api/timedtext?v=SHORTPOT001&lang=${track.languageCode}&pot=TOKEN123&c=WEB&fmt=json3`);
+    };
+    host.appendChild(p);
+    history.pushState({}, '', '/shorts/SHORTPOT001');
+    document.dispatchEvent(new Event('yt-navigate-finish'));
+  });
+  await page.locator('#subme-now-host [data-tab="transcript"]').click();
+  await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-seg')?.textContent.includes('Cuando me dicen'), null, { timeout: 15000 });
+  check('Shorts: transcripción con el token del reproductor (API interna con error 400)', true);
+  check('Shorts: la pista se pidió con el token capturado', timedtextRequests.some((u) => u.includes('lang=es') && u.includes('pot=TOKEN123') && u.includes('v=x')));
+  const langLabel = await page.locator('#subme-now-host [data-ref="lang"]').evaluate((s) => s.options[s.selectedIndex]?.textContent || '');
+  check('Shorts: el selector de idioma no queda vacío', langLabel.trim().length > 0, langLabel);
+  failInnertube = false;
+
   // Volver a un video normal: el panel vuelve a la columna lateral
   await page.evaluate(() => {
     document.querySelector('ytd-shorts').remove();
@@ -408,6 +499,16 @@ try {
   });
   await page.waitForFunction(() => document.querySelector('#secondary-inner > #subme-now-host'), null, { timeout: 5000 });
   check('De Shorts a video: panel vuelve a la columna', true);
+
+  // Video sin subtítulos en YouTube: aviso informativo, no un error.
+  await page.evaluate(() => { history.pushState({}, '', '/watch?v=NOSUBS0001'); document.dispatchEvent(new Event('yt-navigate-finish')); });
+  await page.locator('#subme-now-host [data-tab="transcript"]').click();
+  await page.locator('#subme-now-host .sn-info').waitFor({ timeout: 10000 });
+  const infoState = await page.evaluate(() => {
+    const st = document.querySelector('#subme-now-host').shadowRoot.querySelector('[data-ref="status"]');
+    return { error: st.classList.contains('error'), retry: !!st.querySelector('[data-act="retry"]'), text: st.textContent };
+  });
+  check('Sin subtítulos: aviso claro, sin error ni "Reintentar"', !infoState.error && !infoState.retry && infoState.text.includes('no tiene subtítulos'), infoState.text.slice(0, 80));
 
   check('Sin errores en la consola', errors.length === 0, errors.join(' | '));
 } finally {

@@ -60,7 +60,7 @@
     $('apiKey').value = lockedKeys ? '' : keyOf(p.id);
     $('apiKey').disabled = lockedKeys;
     $('apiKey').placeholder = lockedKeys
-      ? `🔒 ${hasKey(p.id) ? 'Guardada y bloqueada' : 'Bloqueada'}: desbloquea en "Seguridad"`
+      ? `${hasKey(p.id) ? 'Guardada y bloqueada' : 'Bloqueada'}: desbloquea en "Seguridad"`
       : p.id === 'custom' ? 'Opcional para servidores locales' : 'Pega aquí tu clave';
     $('keyLink').hidden = !p.keyUrl;
     $('keyLink').href = p.keyUrl || '#';
@@ -192,24 +192,41 @@
       div.className = 'custom';
       div.innerHTML = `
         <div class="row">
-          <input type="text" class="icon" maxlength="4" placeholder="⭐">
+          <div class="icon-pick-wrap"><button type="button" class="btn icon-pick" title="Elegir ícono"></button><div class="icon-grid" hidden></div></div>
           <input type="text" class="label" placeholder="Nombre del botón (p. ej. Ideas de negocio)">
           <button type="button" class="btn danger">Eliminar</button>
         </div>
         <textarea class="prompt" placeholder="Instrucciones para la IA (p. ej. Extrae ideas de negocio mencionadas en el video y evalúa su viabilidad)."></textarea>`;
-      div.querySelector('.icon').value = a.icon || '';
       div.querySelector('.label').value = a.label || '';
+      const current = () => (SubmeIcons.has(settings.customActions[i]?.icon) ? settings.customActions[i].icon : 'star');
+      const pick = div.querySelector('.icon-pick');
+      const grid = div.querySelector('.icon-grid');
+      pick.innerHTML = `${SubmeIcons.icon(current())}<span class="caret">▾</span>`;
+      grid.innerHTML = SubmeIcons.PICKABLE.map((n) => `<button type="button" data-icon="${n}" title="${n}" class="${n === current() ? 'on' : ''}">${SubmeIcons.icon(n)}</button>`).join('');
+      pick.addEventListener('click', () => {
+        document.querySelectorAll('.icon-grid').forEach((g) => { if (g !== grid) g.hidden = true; });
+        grid.hidden = !grid.hidden;
+      });
+      grid.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-icon]');
+        if (!b) return;
+        settings.customActions[i] = { ...settings.customActions[i], icon: b.dataset.icon };
+        save();
+        pick.innerHTML = `${SubmeIcons.icon(b.dataset.icon)}<span class="caret">▾</span>`;
+        grid.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+        grid.hidden = true;
+      });
       div.querySelector('.prompt').value = a.prompt || '';
       const upd = () => {
         settings.customActions[i] = {
-          icon: div.querySelector('.icon').value.trim(),
+          ...settings.customActions[i],
           label: div.querySelector('.label').value.trim(),
           prompt: div.querySelector('.prompt').value.trim(),
         };
         save();
       };
       div.querySelectorAll('input, textarea').forEach((el) => el.addEventListener('input', upd));
-      div.querySelector('.btn').addEventListener('click', () => {
+      div.querySelector('.btn.danger').addEventListener('click', () => {
         settings.customActions.splice(i, 1);
         save();
         renderCustom();
@@ -218,7 +235,7 @@
     });
   }
   $('addAction').addEventListener('click', () => {
-    settings.customActions.push({ icon: '⭐', label: '', prompt: '' });
+    settings.customActions.push({ icon: 'star', label: '', prompt: '' });
     renderCustom();
     $('customActions').lastElementChild?.querySelector('.label').focus();
   });
@@ -261,7 +278,7 @@
     let first = null;
     let ctrl = null;
     box.innerHTML = `
-      <div class="sn-methods">${Object.entries(SI.METHODS).map(([id, m]) => `<button type="button" data-m="${id}">${m.icon} ${m.label}<small>${{ password: 'Mín. 8 caracteres', images: 'Mín. 6 imágenes en orden', pattern: 'Mín. 6 puntos unidos' }[id]}</small></button>`).join('')}</div>
+      <div class="sn-methods">${Object.entries(SI.METHODS).map(([id, m]) => `<button type="button" data-m="${id}"><span class="sn-m-title">${SubmeIcons.icon(m.icon)}${m.label}</span><small>${{ password: 'Mín. 8 caracteres', images: 'Mín. 6 imágenes en orden', pattern: 'Mín. 6 puntos unidos' }[id]}</small></button>`).join('')}</div>
       <div class="sn-secret-step" id="vStep"></div>
       <div id="vInput"></div>
       <div class="row" style="margin-top:10px;justify-content:center"><button type="button" class="btn" id="vBack" hidden>← Volver</button><button type="button" class="btn primary" id="vNext"></button></div>
@@ -298,7 +315,7 @@
         <p class="muted">Cifra tus API keys. Si alguien copia tu perfil de Chrome, solo verá datos cifrados. Para usar la IA tendrás que desbloquearlas (una vez por sesión del navegador). Elige cómo: con una contraseña, una secuencia de imágenes o un patrón de puntos.</p>
         <div id="vSetup"></div>
         <label class="field" style="max-width:320px;margin:14px auto 0"><span>Bloquear automáticamente</span>${autolockSelect(0)}</label>
-        <p class="muted" style="text-align:center"><small>⚠ Si lo olvidas no hay forma de recuperarlo: tendrás que volver a pegar tus claves.</small></p>`;
+        <p class="muted" style="text-align:center"><small>Importante: si lo olvidas no hay forma de recuperarlo: tendrás que volver a pegar tus claves.</small></p>`;
       secretSetup($('vSetup'), {
         buttonLabel: 'Activar protección',
         onDone: async (secret, method) => {
@@ -313,7 +330,7 @@
     }
     if (vault.locked) {
       box.innerHTML = `
-        <p style="text-align:center"><b>🔒 Claves cifradas y bloqueadas</b> <span class="muted">(${methodName(vault.method)})</span></p>
+        <p style="text-align:center"><b class="sn-state">${SubmeIcons.icon('lock')}Claves cifradas y bloqueadas</b> <span class="muted">(${methodName(vault.method)})</span></p>
         <div id="vInput"></div>
         <div class="row" style="margin-top:10px;justify-content:center"><button type="button" class="btn primary" id="vUnlock">Desbloquear</button></div>
         <div style="text-align:center;margin-top:6px"><span id="vMsg" class="test-result"></span></div>
@@ -337,8 +354,8 @@
       return;
     }
     box.innerHTML = `
-      <p><b>🔓 Claves cifradas y desbloqueadas</b> <span class="muted">(método: ${methodName(vault.method)}; se bloquean al cerrar el navegador${vault.autoLockMinutes ? ` o tras ${vault.autoLockMinutes} min sin uso` : ''}).</span></p>
-      <div class="row"><button type="button" class="btn" id="vLock">🔒 Bloquear ahora</button><label class="row" style="flex:1">${autolockSelect(vault.autoLockMinutes)}</label></div>
+      <p><b class="sn-state">${SubmeIcons.icon('unlock')}Claves cifradas y desbloqueadas</b> <span class="muted">(método: ${methodName(vault.method)}; se bloquean al cerrar el navegador${vault.autoLockMinutes ? ` o tras ${vault.autoLockMinutes} min sin uso` : ''}).</span></p>
+      <div class="row"><button type="button" class="btn" id="vLock"><span class="sn-state">${SubmeIcons.icon('lock')}Bloquear ahora</span></button><label class="row" style="flex:1">${autolockSelect(vault.autoLockMinutes)}</label></div>
       <div class="row" style="margin-top:10px"><button type="button" class="btn" id="vChangeOpen">Cambiar método o secreto</button><button type="button" class="btn danger" id="vDisable">Desactivar protección</button></div>
       <div id="vChange" hidden style="margin-top:12px"></div>
       <div style="margin-top:6px"><span id="vMsg" class="test-result"></span></div>`;

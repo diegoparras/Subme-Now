@@ -175,13 +175,38 @@
     return null;
   }
 
+  /** Envía una orden al puente del reproductor (page-bridge.js) y espera la respuesta. */
+  function bridge(type, extra = {}, timeout = 1500) {
+    const id = `sn-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return new Promise((resolve) => {
+      const onMsg = (e) => {
+        if (e.source !== window || e.data?.source !== 'subme-bridge' || e.data.id !== id) return;
+        window.removeEventListener('message', onMsg);
+        clearTimeout(t);
+        resolve({ ...e.data, id });
+      };
+      const t = setTimeout(() => { window.removeEventListener('message', onMsg); resolve({ ok: false, id, error: 'sin respuesta' }); }, timeout);
+      window.addEventListener('message', onMsg);
+      window.postMessage({ source: 'subme-content', id, type, ...extra }, '*');
+    });
+  }
+
   /**
    * YouTube exige un token de prueba de origen ("pot") en las pistas de subtítulos.
-   * Se obtiene activando un instante los subtítulos del reproductor y leyendo su petición.
+   * Se obtiene pidiéndole al reproductor (video o Short) que cargue los subtítulos un instante
+   * y leyendo su petición. Como respaldo, en videos normales se pulsa el botón CC.
    */
-  async function getPlayerCaptionUrl(videoId) {
+  async function getPlayerCaptionUrl(videoId, languageCode) {
     let u = findPlayerCaptionUrl(videoId);
     if (u) return u;
+
+    const on = await bridge('captions-on', { languageCode });
+    if (on.ok) {
+      for (let i = 0; i < 30 && !u; i++) { await sleep(150); u = findPlayerCaptionUrl(videoId); }
+      await bridge('captions-restore', { ref: on.id });
+      if (u) return u;
+    }
+
     const btn = document.querySelector('#movie_player .ytp-subtitles-button, .ytp-subtitles-button');
     if (!btn || btn.offsetParent === null) return null;
     const wasOn = btn.getAttribute('aria-pressed') === 'true';
@@ -193,7 +218,7 @@
   }
 
   async function fetchTimedTextWithPot(info, track, tlang) {
-    const captured = await getPlayerCaptionUrl(info.videoId);
+    const captured = await getPlayerCaptionUrl(info.videoId, track.languageCode);
     if (!captured) throw new Error('sin token del reproductor');
     const u = new URL(track.baseUrl, 'https://www.youtube.com');
     for (const k of ['pot', 'potc', 'c', 'cver', 'cplayer', 'cos', 'cosver', 'cbr', 'cbrver', 'xorb', 'xobt', 'xovt']) {
@@ -203,13 +228,29 @@
     return fetchTimedText({ baseUrl: u.toString() }, tlang);
   }
 
+  /** Respaldo: pide las pistas a la API del reproductor como cliente móvil (no requiere token). */
+  async function fetchTimedTextViaPlayerApi(info, track, tlang) {
+    const res = await fetch(`https://www.youtube.com/youtubei/v1/player?prettyPrint=false${info.apiKey ? `&key=${info.apiKey}` : ''}`, {
+      method: 'POST',
+      credentials: 'omit',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ context: { client: { clientName: 'ANDROID', clientVersion: '20.10.38', hl: hl() } }, videoId: info.videoId }),
+    });
+    if (!res.ok) throw new Error(`player HTTP ${res.status}`);
+    const json = await res.json();
+    const tracks = json?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
+    const match = tracks.find((t) => t.languageCode === track.languageCode && (t.kind || '') === (track.kind || ''))
+      || tracks.find((t) => t.languageCode === track.languageCode) || tracks[0];
+    if (!match?.baseUrl) throw new Error('player sin pistas');
+    return fetchTimedText({ baseUrl: match.baseUrl.replace(/&fmt=[^&]*/, '') }, tlang);
+  }
+
   async function fetchTimedTextAny(info, track, tlang) {
-    try {
-      return await fetchTimedText(track, tlang);
-    } catch (e) {
-      if (location.pathname !== '/watch') throw e;
-      return fetchTimedTextWithPot(info, track, tlang);
+    const errors = [];
+    for (const attempt of [fetchTimedText.bind(null, track, tlang), () => fetchTimedTextWithPot(info, track, tlang), () => fetchTimedTextViaPlayerApi(info, track, tlang)]) {
+      try { return await attempt(); } catch (e) { errors.push(e.message); }
     }
+    throw new Error(errors.join(' · '));
   }
 
   /** Último recurso: abre el panel nativo "Mostrar transcripción" y lo lee. */
@@ -269,6 +310,14 @@
     }
 
     // Automático
+    const noCaptions = () => Object.assign(
+      new Error(location.pathname.startsWith('/shorts/')
+        ? 'Este Short no tiene subtítulos en YouTube, así que no hay transcripción para mostrar.'
+        : 'Este video no tiene subtítulos en YouTube, así que no hay transcripción para mostrar.'),
+      { code: 'NO_CAPTIONS' },
+    );
+    if (!info.tracks.length && !info.transcriptParams) throw noCaptions();
+
     if (info.transcriptParams) {
       try {
         let r = await fetchInnertube(info, info.transcriptParams);
@@ -297,14 +346,14 @@
       } catch (e) { errors.push(e.message); }
     }
 
-    try {
-      const segments = await fetchFromDom();
-      return { segments, source: 'dom', languages: [], selected: '' };
-    } catch (e) {
-      errors.push(e.message);
-      if (!info.tracks.length && !info.transcriptParams) throw new Error('Este video no tiene subtítulos ni transcripción disponibles.');
-      throw new Error(`No se pudo obtener la transcripción. (${errors.join(' · ')})`);
+    if (location.pathname === '/watch') {
+      try {
+        const segments = await fetchFromDom();
+        return { segments, source: 'dom', languages: [], selected: '' };
+      } catch (e) { errors.push(e.message); }
     }
+    if (!info.tracks.length) throw noCaptions();
+    throw Object.assign(new Error('YouTube no entregó la transcripción de este video. Prueba con "Reintentar" o recarga la página.'), { detail: errors.join(' · ') });
   }
 
   SN.transcript = { getVideoInfo, loadTranscript, _internals: { extractJsonAfter, findKey, collectKey } };
