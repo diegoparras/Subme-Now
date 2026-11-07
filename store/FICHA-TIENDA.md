@@ -8,7 +8,7 @@ Copia y pega cada campo en el Developer Dashboard. Está en **español** (idioma
 
 ## Español (es)
 
-**Nombre** (viene del manifest): Subme Now: transcripción y resumen con IA para YouTube
+**Nombre** (viene del manifest): Subme Now: AI YT Transcript Platform
 
 **Resumen** (máx. 132, viene del manifest):
 Extrae los subtítulos de videos y Shorts de YouTube y crea resúmenes, capítulos y cuestionarios con IA usando tu propia API key.
@@ -53,7 +53,7 @@ Subme Now no está afiliado a YouTube ni a Google.
 
 ## English (en)
 
-**Name:** Subme Now: AI transcript & summary for YouTube
+**Name:** Subme Now: AI YT Transcript Platform
 
 **Summary:** Get transcripts from YouTube videos and Shorts and turn them into AI summaries, chapters and quizzes using your own API key.
 
