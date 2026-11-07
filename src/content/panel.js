@@ -244,6 +244,10 @@
     applySettings(s, initial = false) {
       const prev = this.settings;
       this.settings = s;
+      const iconColor = /^#[0-9a-f]{6}$/i.test(s.iconColor || '') ? s.iconColor : '';
+      this.root.classList.toggle('custom-icons', !!iconColor);
+      if (iconColor) this.host.style.setProperty('--sn-icon', iconColor);
+      else this.host.style.removeProperty('--sn-icon');
       if (initial) {
         this.applyCollapsed();
         this.switchTab(s.defaultTab || 'transcript');

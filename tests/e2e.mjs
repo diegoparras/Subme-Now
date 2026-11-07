@@ -233,6 +233,26 @@ try {
   await page.locator('#subme-now-host .sn-output a.sn-ts', { hasText: '00:08' }).click();
   check('Marca de tiempo de la IA es clicable', (await page.evaluate(() => document.querySelector('video').currentTime)) === 8);
 
+  // Color de los íconos elegido en la configuración
+  await opts.bringToFront();
+  await opts.reload();
+  await opts.waitForSelector('#iconColors [data-color="#e8467c"]');
+  await opts.click('#iconColors [data-color="#e8467c"]');
+  await opts.waitForTimeout(500);
+  const optColor = await opts.evaluate(() => getComputedStyle(document.querySelector('.swatch-preview .sn-i')).color);
+  await page.bringToFront();
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page.waitForTimeout(400);
+  const iconColor = () => page.evaluate(() => getComputedStyle(document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-action .sn-i')).color);
+  check('Color de íconos: se aplica en el panel y en la configuración', (await iconColor()) === 'rgb(232, 70, 124)' && optColor === 'rgb(232, 70, 124)', `${await iconColor()} / ${optColor}`);
+  await opts.bringToFront();
+  await opts.click('#iconColors [data-color=""]');
+  await opts.waitForTimeout(500);
+  await page.bringToFront();
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page.waitForTimeout(400);
+  check('Color de íconos: "Automático" vuelve al violeta', (await iconColor()) === 'rgb(109, 74, 255)', await iconColor());
+
   // Mapa mental como diagrama
   await page.locator('#subme-now-host [data-action="mindmap"]').click();
   await page.locator('#subme-now-host .mm-view svg').waitFor({ timeout: 10000 });

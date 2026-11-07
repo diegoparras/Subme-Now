@@ -204,6 +204,9 @@ a.sn-ts {
 }
 a.sn-ts:hover { text-decoration: underline; }
 
+/* Color de íconos elegido por el usuario (opciones → Color de los íconos) */
+.custom-icons .sn-i, .custom-icons ~ .mm-overlay .sn-i { color: var(--sn-icon) !important; }
+
 /* Mapa mental */
 .mm-switch { display: inline-flex; border: 1px solid var(--sn-border); border-radius: 8px; overflow: hidden; margin: 8px 0; }
 .mm-switch button { border: 0; background: transparent; padding: 4px 12px; font-size: 12.5px; color: var(--sn-fg-2); }

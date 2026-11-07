@@ -397,7 +397,40 @@
     }
   });
 
+  /* ---------- color de los íconos ---------- */
+
+  const ICON_COLORS = [
+    ['', 'Automático'], ['#2f7de1', 'Azul'], ['#0e9f8e', 'Verde azulado'], ['#1f9d55', 'Verde'],
+    ['#e8467c', 'Rosa'], ['#e08a00', 'Naranja'], ['#d93025', 'Rojo'], ['#6b7280', 'Gris'],
+  ];
+  const isHex = (c) => /^#[0-9a-f]{6}$/i.test(c || '');
+
+  function applyIconColor() {
+    const c = isHex(settings.iconColor) ? settings.iconColor : '';
+    document.documentElement.style.setProperty('--icon', c || 'var(--accent)');
+  }
+
+  function renderIconColors() {
+    const box = $('iconColors');
+    const cur = isHex(settings.iconColor) ? settings.iconColor.toLowerCase() : '';
+    const isCustom = cur && !ICON_COLORS.some(([v]) => v === cur);
+    box.innerHTML = ICON_COLORS.map(([v, name]) => `<button type="button" class="swatch${v === cur ? ' on' : ''}${v ? '' : ' auto'}" data-color="${v}" title="${name}" aria-label="${name}" style="--c:${v || 'var(--accent)'}">${v ? '' : 'A'}</button>`).join('')
+      + `<label class="swatch custom${isCustom ? ' on' : ''}" title="Elegir otro color" style="--c:${isCustom ? cur : 'transparent'}">${SubmeIcons.icon('sparkles')}<input type="color" id="iconColorCustom" value="${isCustom ? cur : '#6d4aff'}"></label>`
+      + `<span class="swatch-preview">${['summary', 'mindmap', 'quiz', 'chat'].map((n) => SubmeIcons.icon(n)).join('')}</span>`;
+    box.querySelectorAll('[data-color]').forEach((b) => b.addEventListener('click', () => setIconColor(b.dataset.color)));
+    $('iconColorCustom').addEventListener('input', (e) => setIconColor(e.target.value));
+  }
+
+  function setIconColor(c) {
+    settings.iconColor = isHex(c) ? c.toLowerCase() : '';
+    applyIconColor();
+    save();
+    renderIconColors();
+  }
+
   function renderAll() {
+    applyIconColor();
+    renderIconColors();
     renderSecurity();
     renderProviders();
     renderProviderForm();

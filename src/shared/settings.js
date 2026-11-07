@@ -22,6 +22,7 @@
     defaultTab: 'transcript',
     customActions: [],
     recentModels: {},
+    iconColor: '',
   };
 
   function merge(base, extra) {
