@@ -9,7 +9,7 @@ Sin servidores intermedios: la transcripción sale directo de YouTube y las cons
 ## Funcionalidades
 
 ### 📜 Transcripción (gratis, sin API key)
-- Panel integrado a la derecha del video (respeta el modo claro/oscuro de YouTube).
+- Panel integrado a la derecha del video (respeta el modo claro/oscuro de YouTube), con **color de interfaz configurable**.
 - **YouTube Shorts**: panel flotante con transcripción, IA y chat (se puede contraer).
 - Selector de idioma de subtítulos y **traducción automática de YouTube** a cualquier idioma.
 - **Clic en cualquier línea para saltar** a ese momento del video.

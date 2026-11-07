@@ -244,10 +244,11 @@
     applySettings(s, initial = false) {
       const prev = this.settings;
       this.settings = s;
-      const iconColor = /^#[0-9a-f]{6}$/i.test(s.iconColor || '') ? s.iconColor : '';
-      this.root.classList.toggle('custom-icons', !!iconColor);
-      if (iconColor) this.host.style.setProperty('--sn-icon', iconColor);
-      else this.host.style.removeProperty('--sn-icon');
+      // Color de acento de toda la interfaz (íconos, pestañas, botones, resaltados).
+      const accent = /^#[0-9a-f]{6}$/i.test(s.iconColor || '') ? s.iconColor : '';
+      this.accent = accent;
+      if (accent) { this.host.setAttribute('data-accent', ''); this.host.style.setProperty('--sn-user-accent', accent); }
+      else { this.host.removeAttribute('data-accent'); this.host.style.removeProperty('--sn-user-accent'); }
       if (initial) {
         this.applyCollapsed();
         this.switchTab(s.defaultTab || 'transcript');
@@ -785,6 +786,7 @@
       const out = this.refs.output;
       const note = notice ? `<div class="sn-foot-note">${U.escapeHtml(notice)}</div>` : '';
       const tree = action.view === 'mindmap' ? SN.mindmap.parse(text, this.video?.title) : null;
+      if (tree && this.accent) tree.color = this.accent;
       if (!tree) { out.innerHTML = MD.render(text) + note; return; }
       out.innerHTML = `<div class="mm-switch"><button data-view="diagram" class="on">Diagrama</button><button data-view="text">Texto</button></div>
         <div class="mm-host"></div><div class="md mm-text" hidden>${MD.render(text)}</div>${note}`;

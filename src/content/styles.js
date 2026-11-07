@@ -35,6 +35,15 @@
   --sn-hl: rgba(255, 196, 0, 0.30);
   --sn-danger: #ff6b5e;
 }
+/* Color de acento elegido por el usuario (Configuración → Color de la interfaz) */
+:host([data-accent]) {
+  --sn-accent: var(--sn-user-accent);
+  --sn-accent-soft: color-mix(in srgb, var(--sn-user-accent) 11%, transparent);
+}
+:host([data-accent][data-theme="dark"]) {
+  --sn-accent: color-mix(in srgb, var(--sn-user-accent) 72%, white);
+  --sn-accent-soft: color-mix(in srgb, var(--sn-user-accent) 22%, transparent);
+}
 /* Modo flotante (YouTube Shorts) */
 :host([data-mode="float"]) {
   position: fixed; top: 72px; right: 16px; z-index: 2100; width: 380px; max-width: calc(100vw - 32px); margin: 0;
@@ -203,9 +212,6 @@ a.sn-ts {
   font-variant-numeric: tabular-nums; font-size: .92em; font-weight: 500; white-space: nowrap;
 }
 a.sn-ts:hover { text-decoration: underline; }
-
-/* Color de íconos elegido por el usuario (opciones → Color de los íconos) */
-.custom-icons .sn-i, .custom-icons ~ .mm-overlay .sn-i { color: var(--sn-icon) !important; }
 
 /* Mapa mental */
 .mm-switch { display: inline-flex; border: 1px solid var(--sn-border); border-radius: 8px; overflow: hidden; margin: 8px 0; }

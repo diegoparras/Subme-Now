@@ -3,6 +3,16 @@
   const $ = (id) => document.getElementById(id);
   const msg = (text, cls = '') => { $('msg').textContent = text; $('msg').className = `msg ${cls}`; };
 
+  // Color de acento elegido en la configuración.
+  try {
+    const { settings } = await chrome.storage.local.get('settings');
+    const c = settings?.iconColor;
+    if (/^#[0-9a-f]{6}$/i.test(c || '')) {
+      document.documentElement.setAttribute('data-accent', '');
+      document.documentElement.style.setProperty('--user-accent', c);
+    }
+  } catch { /* usar el color por defecto */ }
+
   const status = await SubmeVault.status();
   const method = status.method || 'password';
   const hint = {

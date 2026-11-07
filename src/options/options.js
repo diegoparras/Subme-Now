@@ -407,16 +407,18 @@
 
   function applyIconColor() {
     const c = isHex(settings.iconColor) ? settings.iconColor : '';
-    document.documentElement.style.setProperty('--icon', c || 'var(--accent)');
+    const root = document.documentElement;
+    if (c) { root.setAttribute('data-accent', ''); root.style.setProperty('--user-accent', c); }
+    else { root.removeAttribute('data-accent'); root.style.removeProperty('--user-accent'); }
   }
 
   function renderIconColors() {
     const box = $('iconColors');
     const cur = isHex(settings.iconColor) ? settings.iconColor.toLowerCase() : '';
     const isCustom = cur && !ICON_COLORS.some(([v]) => v === cur);
-    box.innerHTML = ICON_COLORS.map(([v, name]) => `<button type="button" class="swatch${v === cur ? ' on' : ''}${v ? '' : ' auto'}" data-color="${v}" title="${name}" aria-label="${name}" style="--c:${v || 'var(--accent)'}">${v ? '' : 'A'}</button>`).join('')
+    box.innerHTML = ICON_COLORS.map(([v, name]) => `<button type="button" class="swatch${v === cur ? ' on' : ''}${v ? '' : ' auto'}" data-color="${v}" title="${name}" aria-label="${name}" style="--c:${v || '#6d4aff'}">${v ? '' : 'A'}</button>`).join('')
       + `<label class="swatch custom${isCustom ? ' on' : ''}" title="Elegir otro color" style="--c:${isCustom ? cur : 'transparent'}">${SubmeIcons.icon('sparkles')}<input type="color" id="iconColorCustom" value="${isCustom ? cur : '#6d4aff'}"></label>`
-      + `<span class="swatch-preview">${['summary', 'mindmap', 'quiz', 'chat'].map((n) => SubmeIcons.icon(n)).join('')}</span>`;
+      + `<span class="swatch-preview">${['summary', 'mindmap', 'quiz', 'chat'].map((n) => SubmeIcons.icon(n)).join('')}<span class="swatch-btn">Botón</span></span>`;
     box.querySelectorAll('[data-color]').forEach((b) => b.addEventListener('click', () => setIconColor(b.dataset.color)));
     $('iconColorCustom').addEventListener('input', (e) => setIconColor(e.target.value));
   }

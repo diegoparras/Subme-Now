@@ -88,9 +88,13 @@ textarea { resize: vertical; min-height: 70px; }
 .icon-grid button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .icon-grid .sn-i { width: 20px; height: 20px; }
 
-/* Color de los íconos */
-.sn-i { color: var(--icon, var(--accent)); }
-.btn .sn-i, .icon-grid button .sn-i { color: var(--icon, var(--accent)); }
+/* Color de acento elegido por el usuario */
+:root[data-accent] { --accent: var(--user-accent); --accent-soft: color-mix(in srgb, var(--user-accent) 11%, transparent); }
+@media (prefers-color-scheme: dark) {
+  :root[data-accent] { --accent: color-mix(in srgb, var(--user-accent) 72%, white); --accent-soft: color-mix(in srgb, var(--user-accent) 22%, transparent); }
+}
+.sn-i { color: var(--accent); }
+.btn .sn-i, .icon-grid button .sn-i { color: var(--accent); }
 .swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0; }
 .swatch {
   width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--card); background: var(--c);
@@ -104,3 +108,5 @@ textarea { resize: vertical; min-height: 70px; }
 .swatch.custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
 .swatch-preview { display: inline-flex; gap: 10px; margin-left: 10px; padding-left: 12px; border-left: 1px solid var(--border); }
 .swatch-preview .sn-i { width: 20px; height: 20px; }
+.swatch-preview { align-items: center; }
+.swatch-btn { background: var(--accent); color: #fff; border-radius: 7px; padding: 3px 10px; font-size: 12.5px; }
