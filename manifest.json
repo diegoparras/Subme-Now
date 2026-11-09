@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "__MSG_extName__",
   "short_name": "__MSG_extShortName__",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "description": "__MSG_extDescription__",
   "default_locale": "es",
   "homepage_url": "https://github.com/diegoparras/Subme-Now",
@@ -56,6 +56,8 @@
         "src/content/transcript.js",
         "src/content/ai.js",
         "src/content/mindmap.js",
+        "src/content/export.js",
+        "src/content/tts.js",
         "src/content/panel.js",
         "src/content/main.js"
       ],
@@ -71,5 +73,31 @@
       "run_at": "document_idle",
       "world": "MAIN"
     }
-  ]
+  ],
+  "commands": {
+    "run-summary": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "__MSG_cmdSummary__"
+    },
+    "run-mindmap": {
+      "suggested_key": {
+        "default": "Alt+Shift+M"
+      },
+      "description": "__MSG_cmdMindmap__"
+    },
+    "toggle-panel": {
+      "suggested_key": {
+        "default": "Alt+Shift+Y"
+      },
+      "description": "__MSG_cmdToggle__"
+    },
+    "open-chat": {
+      "suggested_key": {
+        "default": "Alt+Shift+K"
+      },
+      "description": "__MSG_cmdChat__"
+    }
+  }
 }

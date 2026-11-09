@@ -1,0 +1,3 @@
+youtube.com: inserta el panel de Subme Now en las páginas de videos y Shorts de YouTube y obtiene la transcripción del video que el usuario está viendo.
+openrouter.ai, api.openai.com, api.x.ai, api.anthropic.com y generativelanguage.googleapis.com: envía, solo cuando el usuario lo pide, la transcripción y su pregunta al proveedor de IA que configuró con su propia API key, y lista los modelos disponibles en su cuenta.
+Permisos opcionales (https://*/* y http://*/*): solo se solicitan en tiempo de ejecución, con aprobación explícita del usuario, cuando configura un proveedor personalizado compatible con OpenAI (por ejemplo Ollama local o Groq), y únicamente para el dominio que el usuario escribió.

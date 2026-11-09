@@ -33,6 +33,14 @@ Con un clic puedes obtener un resumen, los puntos clave, capítulos con marcas d
 
 Las marcas de tiempo de cada respuesta son clicables y te llevan directo a ese momento del video. También puedes crear tus propias acciones o escribir cualquier pedido.
 
+ESCUCHAR Y EXPORTAR
+• Escucha cualquier resultado en voz alta, con pausa, velocidad y elección de voz.
+• Copia con formato para pegar en tus documentos y apps de notas, envía notas a tu bóveda de notas en Markdown, o descarga en Markdown, documento de texto (.docx) o PDF.
+• Las marcas de tiempo exportadas son enlaces al minuto exacto del video.
+
+ATAJOS DE TECLADO
+Resume, crea el mapa mental, abre el chat o muestra el panel sin tocar el mouse.
+
 CHAT CON EL VIDEO
 Haz preguntas sobre el contenido y recibe respuestas basadas en lo que realmente se dice, con el minuto exacto de cada referencia.
 
@@ -74,6 +82,14 @@ AI ACTIONS
 With one click you get a summary, key points, timestamped chapters, study notes, an interactive mind map, a quiz, flashcards, notable quotes, tutorial steps, claims worth fact-checking, a simple explanation, social media or blog drafts, a clean transcript or a full translation.
 
 Timestamps in every answer are clickable and take you straight to that moment. You can also create your own actions or type any request.
+
+LISTEN AND EXPORT
+• Listen to any result read aloud, with pause, speed and voice selection.
+• Copy with formatting into your documents and note apps, send notes to your Markdown vault, or download as Markdown, a text document (.docx) or PDF.
+• Exported timestamps link to the exact minute of the video.
+
+KEYBOARD SHORTCUTS
+Summarize, build the mind map, open the chat or show the panel without touching the mouse.
 
 CHAT WITH THE VIDEO
 Ask questions about the content and get answers grounded in what is actually said, with the exact minute for each reference.

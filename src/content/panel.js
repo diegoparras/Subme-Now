@@ -79,9 +79,28 @@
             <button class="sn-icon-btn" data-act="stop" title="Detener" hidden>${I('stop')}</button>
             <button class="sn-icon-btn" data-act="regen" title="Regenerar">${I('refresh')}</button>
             <button class="sn-icon-btn" data-act="copyout" title="Copiar">${I('copy')}</button>
-            <button class="sn-icon-btn" data-act="dlout" title="Descargar .md">${I('download')}</button>
+            <button class="sn-icon-btn" data-act="tts" title="Escuchar">${I('volume')}</button>
+            <div class="sn-dropdown">
+              <button class="sn-icon-btn" data-act="exportmenu" title="Exportar">${I('share')}</button>
+              <div class="sn-menu" data-ref="exportmenu" hidden>
+                <button data-export="rich">${I('clipboard')}Copiar con formato <small>Docs, Notion, Word</small></button>
+                <button data-export="obsidian">${I('gem')}Enviar a Obsidian</button>
+                <button data-export="md">${I('download')}Descargar Markdown (.md)</button>
+                <button data-export="docx">${I('fileWord')}Descargar Word (.docx)</button>
+                <button data-export="pdf">${I('printer')}Imprimir o guardar PDF</button>
+              </div>
+            </div>
             <button class="sn-icon-btn" data-act="closeout" title="Cerrar">${I('close')}</button>
           </div>
+        </div>
+        <div class="sn-tts" data-ref="tts" hidden>
+          <button class="sn-icon-btn" data-act="ttsplay" data-ref="ttsplay" title="Pausar">${I('pause')}</button>
+          <button class="sn-icon-btn" data-act="ttsstop" title="Detener lectura">${I('stop')}</button>
+          <span class="sn-tts-progress" data-ref="ttsprogress"></span>
+          <select class="sn-select sn-mini" data-ref="ttsrate" title="Velocidad">
+            <option value="0.8">0.8×</option><option value="1">1×</option><option value="1.2">1.2×</option><option value="1.5">1.5×</option><option value="1.75">1.75×</option><option value="2">2×</option>
+          </select>
+          <select class="sn-select sn-mini sn-tts-voice" data-ref="ttsvoice" title="Voz"></select>
         </div>
         <div class="sn-output md" data-ref="output"></div>
       </div>
@@ -335,6 +354,9 @@
         const dl = e.target.closest('[data-dl]');
         if (dl) { this.refs.dlmenu.hidden = true; this.downloadTranscript(dl.dataset.dl); return; }
 
+        const ex = e.target.closest('[data-export]');
+        if (ex) { this.refs.exportmenu.hidden = true; this.exportResult(ex.dataset.export); return; }
+
         const action = e.target.closest('[data-action]');
         if (action) { this.runAction(this.findAction(action.dataset.action)); return; }
 
@@ -342,8 +364,9 @@
         if (chip) { this.sendChat(chip.textContent); return; }
 
         const btn = e.target.closest('[data-act]');
-        if (!btn) { this.refs.dlmenu.hidden = true; return; }
+        if (!btn) { this.refs.dlmenu.hidden = true; this.refs.exportmenu.hidden = true; return; }
         if (btn.dataset.act !== 'dlmenu') this.refs.dlmenu.hidden = true;
+        if (btn.dataset.act !== 'exportmenu') this.refs.exportmenu.hidden = true;
         e.stopPropagation();
         this.handleAct(btn.dataset.act);
       });
@@ -368,6 +391,18 @@
       this.refs.segments.addEventListener('wheel', () => { this.userScrollUntil = Date.now() + 4000; }, { passive: true });
       this.refs.segments.addEventListener('touchmove', () => { this.userScrollUntil = Date.now() + 4000; }, { passive: true });
 
+      this.refs.ttsrate.addEventListener('change', () => {
+        const rate = Number(this.refs.ttsrate.value) || 1;
+        this.settings.ttsRate = rate;
+        this.updateSettings({ ttsRate: rate });
+        SN.tts.update({ rate });
+      });
+      this.refs.ttsvoice.addEventListener('change', () => {
+        const voiceURI = this.refs.ttsvoice.value;
+        this.settings.ttsVoice = voiceURI;
+        this.updateSettings({ ttsVoice: voiceURI });
+        SN.tts.update({ voiceURI });
+      });
       this.refs.provsel.addEventListener('change', () => this.saveModelChoice({ provider: this.refs.provsel.value }));
       this.refs.rlang.addEventListener('change', () => this.saveModelChoice({ responseLanguage: this.refs.rlang.value }));
       this.refs.modelin.addEventListener('focus', () => { this.refs.modelin.select(); this.loadModelList(); });
@@ -447,11 +482,20 @@
           if (r) U.copyText(r).then(() => this.toast('Resultado copiado'));
           break;
         }
-        case 'dlout': {
-          const r = this.results.get(this.currentAction?.id) || this.lastOutput;
-          if (r) U.downloadText(`${U.safeFilename(this.video?.title)} - ${U.safeFilename(this.currentAction?.label)}.md`, r, 'text/markdown');
+        case 'exportmenu':
+          this.refs.exportmenu.hidden = !this.refs.exportmenu.hidden;
           break;
-        }
+        case 'tts':
+          this.startReading();
+          break;
+        case 'ttsplay':
+          if (SN.tts.state === 'playing') SN.tts.pause();
+          else if (SN.tts.state === 'paused') SN.tts.resume();
+          else this.startReading();
+          break;
+        case 'ttsstop':
+          SN.tts.stop();
+          break;
         case 'closeout':
           this.abortAll();
           this.refs.outwrap.hidden = true;
@@ -690,13 +734,19 @@
     }
 
     renderActions() {
+      const sc = this.settings.shortcuts || {};
+      const hint = (a) => {
+        const k = { summary: sc['run-summary'], mindmap: sc['run-mindmap'] }[a.id];
+        return `${a.desc || a.label}${k ? ` (${k})` : ''}`;
+      };
       this.refs.actions.innerHTML = this.allActions().map((a) => `
-        <button class="sn-action${this.currentAction?.id === a.id ? ' active' : ''}" data-action="${U.escapeHtml(a.id)}" title="${U.escapeHtml(a.desc || a.label)}">
+        <button class="sn-action${this.currentAction?.id === a.id ? ' active' : ''}" data-action="${U.escapeHtml(a.id)}" title="${U.escapeHtml(hint(a))}">
           <span class="sn-action-label">${I(a.icon)}<span>${U.escapeHtml(a.label)}</span>${this.results.has(a.id) ? '<span class="sn-action-done">✓</span>' : ''}</span>
         </button>`).join('');
     }
 
     abortAll() {
+      SN.tts?.stop();
       this.stream?.abort();
       this.stream = null;
       this.ctxRef?.current?.abort();
@@ -781,9 +831,88 @@
       }
     }
 
+    /* ---------- exportar y escuchar ---------- */
+
+    currentDoc() {
+      const text = this.results.get(this.currentAction?.id) || this.lastOutput;
+      if (!text || !this.currentAction) return null;
+      return { video: this.video, title: this.currentAction.label, text };
+    }
+
+    async exportResult(kind) {
+      const doc = this.currentDoc();
+      if (!doc) { this.toast('Todavía no hay un resultado para exportar'); return; }
+      try {
+        if (kind === 'rich') { await SN.exporter.copyRich(doc); this.toast('Copiado con formato: pégalo en Docs, Notion o Word'); }
+        if (kind === 'obsidian') {
+          await SN.exporter.toObsidian(doc, { vault: this.settings.obsidianVault, folder: this.settings.obsidianFolder });
+          this.toast('Abriendo Obsidian…');
+        }
+        if (kind === 'md') SN.exporter.downloadMarkdown(doc);
+        if (kind === 'docx') SN.exporter.downloadDocx(doc);
+        if (kind === 'pdf') await SN.exporter.print(doc);
+      } catch (e) {
+        this.toast(`No se pudo exportar: ${e.message}`);
+      }
+    }
+
+    async startReading() {
+      const out = this.refs.output;
+      let container = out;
+      if (this.currentAction?.view === 'mindmap' && out.querySelector('.mm-text')) {
+        out.querySelector('.mm-switch [data-view="text"]')?.click(); // leer la versión en texto del mapa
+        container = out.querySelector('.mm-text');
+      }
+      const lang = this.settings.responseLanguage === 'video' ? (document.documentElement.lang || 'es') : this.settings.responseLanguage;
+      this.refs.tts.hidden = false;
+      this.refs.ttsrate.value = String(this.settings.ttsRate || 1);
+      try {
+        await SN.tts.start(container, {
+          lang,
+          rate: Number(this.settings.ttsRate) || 1,
+          voiceURI: this.settings.ttsVoice,
+          onState: (st) => this.renderTtsState(st),
+        });
+        this.fillVoices(lang);
+      } catch (e) {
+        this.refs.tts.hidden = true;
+        this.toast(e.message);
+      }
+    }
+
+    async fillVoices(lang) {
+      const voices = await SN.tts.getVoices();
+      const base = (lang || 'es').split('-')[0].toLowerCase();
+      const list = voices.filter((v) => v.lang.toLowerCase().startsWith(base));
+      const shown = list.length ? list : voices;
+      const current = SN.tts.pickVoice(voices, lang, this.settings.ttsVoice);
+      this.refs.ttsvoice.innerHTML = shown.map((v) => `<option value="${U.escapeHtml(v.voiceURI)}">${U.escapeHtml(v.name)}</option>`).join('');
+      if (current) this.refs.ttsvoice.value = current.voiceURI;
+      this.refs.ttsvoice.hidden = !shown.length;
+    }
+
+    renderTtsState({ state, index, total }) {
+      if (state === 'idle') { this.refs.tts.hidden = true; return; }
+      this.refs.tts.hidden = false;
+      this.refs.ttsplay.innerHTML = I(state === 'playing' ? 'pause' : 'play');
+      this.refs.ttsplay.title = state === 'playing' ? 'Pausar' : 'Continuar';
+      this.refs.ttsprogress.textContent = `${state === 'paused' ? 'En pausa · ' : 'Leyendo · '}${index}/${total}`;
+    }
+
+    /** Atajos de teclado (chrome://extensions/shortcuts). */
+    handleCommand(command) {
+      if (!this.videoId) return;
+      if (this.root.classList.contains('collapsed') && command !== 'toggle-panel') this.handleAct('toggle');
+      if (command === 'toggle-panel') this.handleAct('toggle');
+      if (command === 'run-summary') this.runAction(this.findAction('summary'));
+      if (command === 'run-mindmap') this.runAction(this.findAction('mindmap'));
+      if (command === 'open-chat') { this.switchTab('chat'); this.refs.chatinput.focus({ preventScroll: true }); }
+    }
+
     /** Muestra el resultado de una acción: Markdown, o diagrama si es un mapa mental. */
     renderResult(action, text, notice = '') {
       const out = this.refs.output;
+      this.lastOutput = text;
       const note = notice ? `<div class="sn-foot-note">${U.escapeHtml(notice)}</div>` : '';
       const tree = action.view === 'mindmap' ? SN.mindmap.parse(text, this.video?.title) : null;
       if (tree && this.accent) tree.color = this.accent;

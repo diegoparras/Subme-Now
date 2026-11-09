@@ -1,0 +1,1 @@
+Guarda localmente la configuración del usuario (proveedor de IA, modelo, idioma de respuesta, color de la interfaz y acciones personalizadas) y sus API keys, que opcionalmente pueden cifrarse con una contraseña, secuencia de imágenes o patrón. Nada se sincroniza ni se envía a servidores del desarrollador.

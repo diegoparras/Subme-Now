@@ -1,0 +1,3 @@
+Pagos: Gratis
+Visibilidad: Público (u Oculto para probar solo con el enlace)
+Regiones: Todas las regiones

@@ -1,0 +1,10 @@
+Marcar SOLO estas dos casillas:
+[x] Información de autenticación (las API keys del usuario)
+[x] Contenido del sitio web (transcripción, título y URL del video)
+
+Todas las demás: sin marcar.
+
+Marcar las TRES certificaciones:
+[x] No vendo ni transfiero datos de usuario a terceros, fuera de los casos prácticos aprobados
+[x] No uso ni transfiero datos de usuario para fines no relacionados con la finalidad única de mi elemento
+[x] No uso ni transfiero datos de usuarios para determinar su situación crediticia ni para ofrecer préstamos

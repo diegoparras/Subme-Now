@@ -43,6 +43,9 @@ Además:
 - **Prompt libre**: escribe cualquier pedido sobre el video.
 - **Acciones personalizadas**: crea tus propios botones con tu prompt y elige su ícono de una galería.
 - **Cambio rápido de proveedor, modelo e idioma de respuesta desde el propio panel**, con la lista de modelos de tu cuenta y los usados recientemente.
+- **Escuchar**: lectura en voz alta de cualquier resultado con las voces del sistema, con pausa, velocidad, elección de voz y resaltado de lo que se está leyendo.
+- **Exportar**: copiar con formato (para Google Docs, Notion o Word), enviar a Obsidian, descargar Markdown o Word (.docx) e imprimir o guardar como PDF. Las marcas de tiempo exportadas son enlaces al minuto exacto del video.
+- **Atajos de teclado**: `Alt+Shift+S` resumir, `Alt+Shift+M` mapa mental, `Alt+Shift+Y` mostrar u ocultar el panel, `Alt+Shift+K` abrir el chat (se cambian en `chrome://extensions/shortcuts`).
 - Las respuestas se muestran **en streaming**, en Markdown, y **las marcas de tiempo son clicables** (saltan al momento del video).
 - Copiar o descargar cada resultado como `.md`, regenerar o detener.
 - Idioma de respuesta configurable (español, inglés, portugués, francés, alemán, italiano o el del video).
@@ -168,11 +171,10 @@ Genera `dist/subme-now-<versión>.zip`. Los textos de la ficha están en [`store
 ## Ideas para próximas versiones
 
 - Soporte para videos embebidos en otros sitios.
-- Exportar resultados a Notion, Google Docs u Obsidian.
+- Integración directa con Notion.
 - Historial de resúmenes guardados por video.
 - Comparar o resumir varios videos (por ejemplo, una playlist completa).
-- Atajos de teclado (p. ej. `Alt+S` para resumir).
-- Lectura en voz alta del resumen (Text-to-Speech).
+- Voces de IA y resumen en audio estilo podcast.
 
 ## Licencia
 

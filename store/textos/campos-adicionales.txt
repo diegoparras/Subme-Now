@@ -1,0 +1,5 @@
+URL oficial: Ninguna
+URL de la página principal: https://github.com/diegoparras/Subme-Now
+URL de asistencia: https://github.com/diegoparras/Subme-Now/issues
+Contenido para adultos: desactivado
+Vídeo promocional (localizado y global): dejar vacío

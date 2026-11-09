@@ -174,10 +174,10 @@ mark { background: var(--sn-hl); color: inherit; border-radius: 3px; padding: 0 
 .sn-free { display: flex; gap: 6px; margin-top: 10px; }
 .sn-textarea { flex: 1; resize: vertical; min-height: 38px; max-height: 160px; }
 
-.sn-output-wrap { margin-top: 12px; border: 1px solid var(--sn-border); border-radius: 10px; overflow: hidden; }
+.sn-output-wrap { margin-top: 12px; border: 1px solid var(--sn-border); border-radius: 10px; }
 .sn-output-head {
   display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 8px 6px 12px;
-  background: var(--sn-bg-2); border-bottom: 1px solid var(--sn-border);
+  background: var(--sn-bg-2); border-bottom: 1px solid var(--sn-border); border-radius: 10px 10px 0 0;
 }
 .sn-output-title { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sn-output-tools { display: flex; gap: 2px; flex-shrink: 0; }
@@ -212,6 +212,19 @@ a.sn-ts {
   font-variant-numeric: tabular-nums; font-size: .92em; font-weight: 500; white-space: nowrap;
 }
 a.sn-ts:hover { text-decoration: underline; }
+
+/* Lectura en voz alta */
+.sn-tts { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--sn-border); background: var(--sn-accent-soft); }
+.sn-tts .sn-icon-btn { width: 28px; height: 28px; color: var(--sn-accent); }
+.sn-tts-progress { font-size: 12px; color: var(--sn-fg-2); flex: 1; white-space: nowrap; }
+.sn-tts .sn-select { flex: 0 1 auto; max-width: 42%; }
+.sn-reading { background: var(--sn-accent-soft); border-radius: 6px; box-shadow: 0 0 0 3px var(--sn-accent-soft); }
+
+/* Menú Exportar */
+.sn-output-tools .sn-menu { min-width: 250px; }
+.sn-menu button { display: flex; align-items: center; gap: 8px; }
+.sn-menu button .sn-i { color: var(--sn-accent); }
+.sn-menu button small { color: var(--sn-fg-2); font-size: 11px; margin-left: auto; }
 
 /* Mapa mental */
 .mm-switch { display: inline-flex; border: 1px solid var(--sn-border); border-radius: 8px; overflow: hidden; margin: 8px 0; }

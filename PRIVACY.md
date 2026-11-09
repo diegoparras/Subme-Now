@@ -21,6 +21,10 @@ Subme Now es una extensión de navegador que muestra la transcripción de los vi
 | Transcripción, título, canal y URL del video | Generar resúmenes, respuestas del chat y demás acciones | Se obtiene de YouTube y se envía al proveedor de IA elegido solo cuando usas una función de IA. No se almacena de forma permanente. |
 | Preguntas que escribes en el chat o en el prompt libre | Responderte | Se envían al proveedor de IA elegido. No se almacenan de forma permanente. |
 
+**Lectura en voz alta:** usa las voces instaladas en tu navegador o sistema operativo. Algunas voces "en línea" que ofrece el navegador (por ejemplo, las de Google en Chrome) procesan el texto en los servidores de ese proveedor; las voces locales del sistema funcionan sin conexión. Puedes elegir la voz en el panel.
+
+**Exportar:** "Copiar con formato" usa el portapapeles; "Enviar a Obsidian" abre la aplicación Obsidian instalada en tu computadora; las descargas (Markdown, Word) y el PDF se generan localmente. Nada pasa por servidores de Subme Now.
+
 Subme Now **no** recopila tu historial de navegación, datos personales, ubicación, contraseñas de sitios web, datos financieros ni de salud.
 
 ## Proveedores de IA

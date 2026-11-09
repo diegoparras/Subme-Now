@@ -162,6 +162,7 @@
     .map(([code, name]) => `<option value="${code}">${name.charAt(0).toUpperCase() + name.slice(1)}</option>`).join('');
 
   const simple = {
+    obsidianVault: 'value', obsidianFolder: 'value',
     responseLanguage: 'value', maxOutputTokens: 'number', maxContextChars: 'number', transcriptLanguage: 'value', defaultTab: 'value',
     showTimestamps: 'checked', autoScroll: 'checked', panelCollapsed: 'checked', shortsCollapsed: 'checked', autoSummary: 'checked',
   };
@@ -430,7 +431,23 @@
     renderIconColors();
   }
 
+  /* ---------- atajos de teclado ---------- */
+
+  async function renderShortcuts() {
+    const names = { 'run-summary': 'Resumir el video', 'run-mindmap': 'Mapa mental', 'toggle-panel': 'Mostrar u ocultar el panel', 'open-chat': 'Abrir el chat' };
+    let cmds = [];
+    try { cmds = await chrome.commands.getAll(); } catch { /* noop */ }
+    const order = Object.keys(names);
+    cmds = cmds.filter((c) => names[c.name]).sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
+    $('shortcuts').innerHTML = cmds.map((c) => `<div class="shortcut"><span>${names[c.name]}</span>${c.shortcut
+      ? c.shortcut.split('+').map((k) => `<kbd>${k}</kbd>`).join('<span class="plus">+</span>')
+      : '<span class="muted">Sin asignar</span>'}</div>`).join('');
+  }
+  $('editShortcuts').addEventListener('click', () => chrome.tabs.create({ url: 'chrome://extensions/shortcuts' }));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) renderShortcuts(); });
+
   function renderAll() {
+    renderShortcuts();
     applyIconColor();
     renderIconColors();
     renderSecurity();

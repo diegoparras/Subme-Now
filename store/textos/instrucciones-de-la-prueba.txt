@@ -1,0 +1,8 @@
+Cómo probar Subme Now:
+1. Abra cualquier video de YouTube con subtítulos (por ejemplo, una charla TED). El panel "Subme Now" aparece a la derecha del video. En YouTube Shorts aparece como panel flotante.
+2. Pestaña "Transcripción": no requiere ninguna clave. Puede buscar texto, hacer clic en una línea para saltar a ese momento del video, cambiar el idioma y descargar en TXT, SRT, VTT, Markdown o JSON.
+3. Pestañas "IA" y "Chat": requieren que el usuario configure su propia API key en la página de opciones. La extensión no incluye claves ni tiene servidores propios; las solicitudes van directamente del navegador al proveedor elegido.
+4. "Mapa mental" genera un diagrama interactivo: las ramas se expanden con un clic y saltan al momento del video.
+5. Cada resultado tiene "Escuchar" (lectura en voz alta con las voces del sistema) y "Exportar" (copiar con formato, Markdown, .docx o PDF, generados localmente).
+6. Atajos de teclado: Alt+Shift+S resumir, Alt+Shift+M mapa mental, Alt+Shift+Y mostrar u ocultar el panel, Alt+Shift+K chat.
+7. Opcional: en Opciones se puede cambiar el color de la interfaz y cifrar las claves con contraseña, secuencia de imágenes o patrón.

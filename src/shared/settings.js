@@ -23,6 +23,10 @@
     customActions: [],
     recentModels: {},
     iconColor: '',
+    ttsVoice: '',
+    ttsRate: 1,
+    obsidianVault: '',
+    obsidianFolder: 'Subme Now',
   };
 
   function merge(base, extra) {

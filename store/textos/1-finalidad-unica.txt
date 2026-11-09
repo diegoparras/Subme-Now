@@ -1,0 +1,1 @@
+Mostrar la transcripción de los videos de YouTube junto al reproductor y permitir al usuario procesarla (resumir, crear capítulos y mapas mentales, responder preguntas, etc.) con el proveedor de inteligencia artificial que él mismo configura con su propia API key.

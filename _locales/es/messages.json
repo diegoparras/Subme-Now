@@ -10,5 +10,17 @@
   },
   "actionTitle": {
     "message": "Subme Now: configuración"
+  },
+  "cmdSummary": {
+    "message": "Resumir el video actual"
+  },
+  "cmdMindmap": {
+    "message": "Crear el mapa mental del video"
+  },
+  "cmdToggle": {
+    "message": "Mostrar u ocultar el panel"
+  },
+  "cmdChat": {
+    "message": "Abrir el chat con el video"
   }
 }

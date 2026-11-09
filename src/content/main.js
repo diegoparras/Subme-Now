@@ -34,6 +34,11 @@
     panel.attachVideo();
   }
 
+  // Atajos de teclado enviados por el service worker.
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg?.type === 'subme-command') panel?.handleCommand(msg.command);
+  });
+
   document.addEventListener('yt-navigate-finish', () => setTimeout(tick, 50));
   window.addEventListener('popstate', () => setTimeout(tick, 50));
   setInterval(tick, 1000);

@@ -41,7 +41,14 @@ function openUnlockWindow() {
   return chrome.windows.create({ url: chrome.runtime.getURL('src/unlock/unlock.html'), type: 'popup', width: 440, height: 720, focused: true });
 }
 
-const CONTENT_WRITABLE = ['panelCollapsed', 'shortsCollapsed', 'showTimestamps', 'autoScroll', 'responseLanguage', 'provider'];
+/** Agrega los atajos de teclado asignados (para mostrarlos en el panel). */
+async function withShortcuts(settings) {
+  const shortcuts = {};
+  try { (await chrome.commands.getAll()).forEach((c) => { if (c.name && c.shortcut) shortcuts[c.name] = c.shortcut; }); } catch { /* sin atajos */ }
+  return { ...settings, shortcuts };
+}
+
+const CONTENT_WRITABLE = ['panelCollapsed', 'shortsCollapsed', 'showTimestamps', 'autoScroll', 'responseLanguage', 'provider', 'ttsVoice', 'ttsRate'];
 
 async function updateFromContent({ patch = {}, model }) {
   const s = await getSettings();
@@ -56,6 +63,11 @@ async function updateFromContent({ patch = {}, model }) {
   await SubmeSettings.saveSettings(s);
   return publicSettings(s);
 }
+
+// Atajos de teclado (se configuran en chrome://extensions/shortcuts).
+chrome.commands?.onCommand.addListener((command, tab) => {
+  if (tab?.id != null) chrome.tabs.sendMessage(tab.id, { type: 'subme-command', command }).catch(() => {});
+});
 
 chrome.action.onClicked.addListener(() => chrome.runtime.openOptionsPage());
 
@@ -149,10 +161,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return { ok: true };
       }
       if (msg.type === 'getPublicSettings') {
-        return { ok: true, settings: await publicSettings(await getSettings()) };
+        return { ok: true, settings: await withShortcuts(await publicSettings(await getSettings())) };
       }
       if (msg.type === 'updateSettings') {
-        return { ok: true, settings: await updateFromContent(msg) };
+        return { ok: true, settings: await withShortcuts(await updateFromContent(msg)) };
+      }
+      if (msg.type === 'printDoc') {
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        await chrome.storage.session.set({ [`print:${id}`]: { title: String(msg.title || 'Subme Now').slice(0, 300), html: String(msg.html || '') } });
+        await chrome.tabs.create({ url: chrome.runtime.getURL(`src/print/print.html#${id}`) });
+        return { ok: true };
       }
       if (msg.type === 'openUnlock') {
         await openUnlockWindow();

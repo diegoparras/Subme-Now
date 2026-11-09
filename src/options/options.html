@@ -104,6 +104,22 @@
       <button type="button" class="btn" id="addAction">+ Agregar acción</button>
     </section>
 
+    <section class="card">
+      <h2>Atajos de teclado</h2>
+      <p class="muted">Funcionan en cualquier video o Short de YouTube. Puedes cambiarlos cuando quieras.</p>
+      <div id="shortcuts" class="shortcuts"></div>
+      <button type="button" class="btn" id="editShortcuts">Cambiar atajos</button>
+    </section>
+
+    <section class="card">
+      <h2>Exportar a Obsidian</h2>
+      <p class="muted">El botón "Enviar a Obsidian" crea una nota con el resultado, el enlace al video y las marcas de tiempo como enlaces. Necesitas tener Obsidian instalado.</p>
+      <div class="grid2">
+        <label class="field"><span>Nombre de la bóveda (vault)</span><input type="text" id="obsidianVault" placeholder="Vacío = la última que abriste"></label>
+        <label class="field"><span>Carpeta dentro de la bóveda</span><input type="text" id="obsidianFolder" placeholder="Subme Now"></label>
+      </div>
+    </section>
+
     <section class="card" id="security">
       <h2>5. Seguridad: proteger las API keys</h2>
       <div id="securityBody"></div>

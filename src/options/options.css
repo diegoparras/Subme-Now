@@ -110,3 +110,10 @@ textarea { resize: vertical; min-height: 70px; }
 .swatch-preview .sn-i { width: 20px; height: 20px; }
 .swatch-preview { align-items: center; }
 .swatch-btn { background: var(--accent); color: #fff; border-radius: 7px; padding: 3px 10px; font-size: 12.5px; }
+
+/* Atajos de teclado */
+.shortcuts { display: grid; gap: 8px; margin-bottom: 12px; }
+.shortcut { display: flex; align-items: center; gap: 6px; }
+.shortcut > span:first-child { flex: 1; }
+kbd { font: 600 12px ui-monospace, Consolas, monospace; background: var(--bg); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 6px; padding: 2px 7px; }
+.shortcut .plus { color: var(--fg-2); font-size: 12px; }

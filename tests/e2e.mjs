@@ -288,6 +288,70 @@ try {
   const pngBuf = fs.readFileSync(await pngDl.path());
   check('Mapa mental: descarga PNG', pngBuf.slice(1, 4).toString() === 'PNG');
 
+  // ---------- v1.3: atajos, exportar y escuchar ----------
+  const sendCommand = (command) => opts.evaluate(async (cmd) => {
+    for (const t of await chrome.tabs.query({})) { try { await chrome.tabs.sendMessage(t.id, { type: 'subme-command', command: cmd }); } catch { /* sin content script */ } }
+  }, command);
+  await page.bringToFront();
+  await sendCommand('toggle-panel');
+  await page.waitForTimeout(300);
+  const collapsedByKey = await page.locator('#subme-now-host [data-ref="body"]').isHidden();
+  await sendCommand('run-summary');
+  await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('[data-ref="outtitle"]')?.textContent.includes('Resumen'), null, { timeout: 10000 });
+  check('Atajos: ocultar panel y resumir (lo vuelve a mostrar)', collapsedByKey && await page.locator('#subme-now-host [data-ref="body"]').isVisible());
+  await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-output table'), null, { timeout: 10000 });
+  const titleHint = await page.locator('#subme-now-host [data-action="summary"]').getAttribute('title');
+  check('Atajos: el botón muestra su atajo', /Alt\+Shift\+S/.test(titleHint), titleHint);
+
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'https://www.youtube.com' });
+  await page.locator('#subme-now-host [data-act="exportmenu"]').click();
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'v13-exportar.png') });
+  await page.locator('#subme-now-host [data-export="rich"]').click();
+  await page.waitForTimeout(300);
+  const clip = await page.evaluate(async () => {
+    const items = await navigator.clipboard.read();
+    const html = await (await items[0].getType('text/html')).text();
+    const text = await (await items[0].getType('text/plain')).text();
+    return { html, text };
+  });
+  check('Exportar: copiar con formato (HTML + enlaces al minuto)', clip.html.includes('<strong>TL;DR:</strong>') && clip.html.includes('href="https://www.youtube.com/watch?v=abc123XYZ00&amp;t=8s">00:08</a>') && !clip.html.includes('(https'), clip.html.slice(0, 120));
+
+  const exportDownload = async (kind) => {
+    await page.locator('#subme-now-host [data-act="exportmenu"]').click();
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.locator(`#subme-now-host [data-export="${kind}"]`).click()]);
+    return { name: dl.suggestedFilename(), file: await dl.path() };
+  };
+  const md = await exportDownload('md');
+  const mdText = fs.readFileSync(md.file, 'utf8');
+  check('Exportar: Markdown con metadatos y marcas de tiempo enlazadas', md.name.endsWith('Resumen.md') && mdText.startsWith('---\ntitle:') && mdText.includes('](https://www.youtube.com/watch?v=abc123XYZ00&t=0s)'), md.name);
+  const docxFile = await exportDownload('docx');
+  const { execFileSync } = await import('node:child_process');
+  let docxCheck = '';
+  try {
+    docxCheck = execFileSync('python3', ['-I', '-c', 'import sys, docx; d = docx.Document(sys.argv[1]); print("|".join(p.style.name + ":" + p.text for p in d.paragraphs[:8]) + "|"); print("TABLES", len(d.tables))', docxFile.file]).toString();
+  } catch (e) { docxCheck = `ERROR ${e.message}`; }
+  check('Exportar: Word (.docx) válido con títulos, texto y tabla', docxFile.name.endsWith('.docx') && docxCheck.includes('Title:Resumen') && docxCheck.includes('TL;DR') && docxCheck.includes('TABLES 1') && docxCheck.includes('Saludo inicial 00:00|') && !docxCheck.includes('(https'), docxCheck.replace(/\n/g, ' ').slice(0, 160));
+
+  await page.locator('#subme-now-host [data-act="exportmenu"]').click();
+  const [printPage] = await Promise.all([context.waitForEvent('page'), page.locator('#subme-now-host [data-export="pdf"]').click()]);
+  await printPage.waitForSelector('#doc h1', { timeout: 10000 });
+  await printPage.screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'v13-pdf.png') });
+  check('Exportar: página para imprimir o guardar PDF', (await printPage.textContent('#doc')).includes('TL;DR') && printPage.url().includes('print.html'));
+  await printPage.close();
+  await page.bringToFront();
+
+  await page.locator('#subme-now-host [data-act="tts"]').click();
+  await page.waitForTimeout(500);
+  const ttsInfo = await page.evaluate(() => {
+    const r = document.querySelector('#subme-now-host').shadowRoot;
+    return { bar: !r.querySelector('[data-ref="tts"]').hidden, progress: r.querySelector('[data-ref="ttsprogress"]').textContent, reading: !!r.querySelector('.sn-reading'), voices: speechSynthesis.getVoices().length };
+  });
+  check('Escuchar: lectura iniciada o aviso claro si no hay voces', ttsInfo.bar || ttsInfo.voices === 0, JSON.stringify(ttsInfo));
+  await page.evaluate(() => { const r = document.querySelector('#subme-now-host').shadowRoot; r.querySelector('[data-ref="tts"]').hidden = false; r.querySelector('[data-ref="ttsprogress"]').textContent = 'Leyendo · 3/9'; r.querySelectorAll('.sn-output p')[0]?.classList.add('sn-reading'); });
+  await page.locator('#subme-now-host .sn-output-wrap').screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'v13-escuchar.png') });
+  await page.locator('#subme-now-host [data-act="ttsstop"]').click().catch(() => {});
+
   // Cambio de modelo desde el panel
   const bar = page.locator('#subme-now-host [data-ref="modelbar"]');
   check('Barra de modelo visible en IA', await bar.isVisible());
