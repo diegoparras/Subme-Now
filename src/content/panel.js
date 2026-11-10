@@ -937,19 +937,27 @@
       });
     }
 
+    /**
+     * Vista ampliada del mapa mental. Usa un <dialog> modal nativo: se dibuja en la capa superior
+     * del navegador, así que no lo afectan los estilos de YouTube (transformaciones, z-index).
+     */
     openMindmapFullscreen(tree, onClose) {
-      const overlay = document.createElement('div');
-      overlay.className = 'mm-overlay';
-      overlay.innerHTML = `<div class="mm-overlay-card">
+      const dialog = document.createElement('dialog');
+      dialog.className = 'mm-overlay mm-dialog';
+      dialog.innerHTML = `<div class="mm-overlay-card">
         <div class="mm-overlay-head"><span class="sn-output-title">${I('mindmap')}<span>${U.escapeHtml(this.video?.title || 'Mapa mental')}</span></span>
-        <button class="sn-icon-btn" data-close title="Cerrar (Esc)">${I('close')}</button></div>
+        <button class="sn-btn mm-close" data-close title="Cerrar (Esc)">${I('close')}Cerrar</button></div>
         <div class="mm-overlay-body"></div></div>`;
-      this.shadow.querySelector('.sn-wrap').appendChild(overlay);
-      const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey, true); onClose?.(); };
-      const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
-      document.addEventListener('keydown', onKey, true);
-      overlay.addEventListener('click', (e) => { if (e.target === overlay || e.target.closest('[data-close]')) close(); });
-      SN.mindmap.mount(overlay.querySelector('.mm-overlay-body'), tree, {
+      this.shadow.querySelector('.sn-wrap').appendChild(dialog);
+      dialog.addEventListener('close', () => { dialog.remove(); onClose?.(); });
+      dialog.addEventListener('click', (e) => {
+        // Clic en el fondo oscuro (fuera de la tarjeta) o en "Cerrar".
+        if (e.target === dialog || e.target.closest('[data-close]')) dialog.close();
+      });
+      // Evita que las teclas lleguen a los atajos de YouTube (k, j, f, flechas…) mientras está abierto.
+      dialog.addEventListener('keydown', (e) => { if (e.key !== 'Escape') e.stopPropagation(); });
+      dialog.showModal();
+      SN.mindmap.mount(dialog.querySelector('.mm-overlay-body'), tree, {
         fill: true,
         dark: this.host.getAttribute('data-theme') === 'dark',
         title: this.video?.title,

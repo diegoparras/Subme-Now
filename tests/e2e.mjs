@@ -74,7 +74,7 @@ const initialData = { engagementPanels: [{ engagementPanelSectionListRenderer: {
 const watchHtml = `<!doctype html><html lang="es"><head><title>Video de prueba - YouTube</title></head><body>
 <ytd-app><ytd-watch-flexy style="display:flex;gap:16px">
   <div id="primary" style="width:640px"><video class="html5-main-video" width="640" height="360" muted></video><div id="below"></div></div>
-  <div id="secondary" style="width:400px;display:block"><div id="secondary-inner" style="display:block"></div></div>
+  <div id="secondary" style="width:400px;display:block;transform:translateZ(0)"><div id="secondary-inner" style="display:block"></div></div>
 </ytd-watch-flexy></ytd-app>
 <script>var ytInitialPlayerResponse = ${JSON.stringify(playerResponse)};</script>
 <script>var ytInitialData = ${JSON.stringify(initialData)};</script>
@@ -278,9 +278,23 @@ try {
   await page.locator('#subme-now-host .mm-switch [data-view="diagram"]').click();
   await page.locator('#subme-now-host [data-mm="full"]').click();
   await page.locator('#subme-now-host .mm-overlay .mm-view svg').waitFor({ timeout: 5000 });
+  const fsBox = await page.locator('#subme-now-host .mm-overlay-card').boundingBox();
+  const vp = page.viewportSize();
+  const closeBox = await page.locator('#subme-now-host .mm-overlay [data-close]').boundingBox();
+  check('Mapa mental: pantalla completa ocupa la ventana (aunque YouTube transforme la columna)', fsBox.x < 60 && fsBox.width > vp.width * 0.85 && closeBox && closeBox.y >= 0 && closeBox.x + closeBox.width <= vp.width, JSON.stringify({ fsBox, closeBox }));
   await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'subme-e2e-mindmap-full.png') });
   await page.keyboard.press('Escape');
-  check('Mapa mental: pantalla completa abre y cierra con Esc', (await page.locator('#subme-now-host .mm-overlay').count()) === 0);
+  const closedByEsc = await page.waitForFunction(() => !document.querySelector('#subme-now-host').shadowRoot.querySelector('.mm-overlay'), null, { timeout: 3000 }).then(() => true).catch(() => false);
+  check('Mapa mental: pantalla completa abre y cierra con Esc', closedByEsc);
+  await page.locator('#subme-now-host [data-mm="full"]').click();
+  await page.locator('#subme-now-host .mm-overlay .mm-view svg').waitFor({ timeout: 5000 });
+  await page.locator('#subme-now-host .mm-overlay [data-mm="zoomin"]').click();
+  await page.locator('#subme-now-host .mm-overlay [data-mm="zoomin"]').click();
+  const scrollable = await page.evaluate(() => { const v = document.querySelector('#subme-now-host').shadowRoot.querySelector('.mm-overlay .mm-view'); v.scrollLeft = 0; return v.getBoundingClientRect().left <= v.querySelector('svg').getBoundingClientRect().left + 1; });
+  check('Mapa mental: con zoom se puede ver el borde izquierdo', scrollable);
+  await page.locator('#subme-now-host .mm-overlay [data-close]').click();
+  const closedByButton = await page.waitForFunction(() => !document.querySelector('#subme-now-host').shadowRoot.querySelector('.mm-overlay'), null, { timeout: 3000 }).then(() => true).catch(() => false);
+  check('Mapa mental: el botón Cerrar cierra la vista ampliada', closedByButton);
   await page.locator('#subme-now-host .sn-output-wrap').screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'subme-e2e-mindmap.png') });
   const [svgDl] = await Promise.all([page.waitForEvent('download'), page.locator('#subme-now-host [data-mm="svg"]').first().click()]);
   check('Mapa mental: descarga SVG', svgDl.suggestedFilename().endsWith('mapa mental.svg') && fs.readFileSync(await svgDl.path(), 'utf8').startsWith('<svg'));

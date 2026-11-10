@@ -238,11 +238,17 @@ a.sn-ts:hover { text-decoration: underline; }
 .mm-view { overflow: auto; max-height: 520px; border: 1px solid var(--sn-border); border-radius: 10px; background: var(--sn-bg); padding: 2px; }
 .mm-view svg { display: block; }
 .mm-node:hover rect:first-child { stroke-width: 2; }
-.mm-overlay { position: fixed; inset: 0; z-index: 2147483000; background: rgba(10, 10, 14, .55); display: grid; place-items: center; padding: 24px; }
-.mm-overlay-card { background: var(--sn-bg); border: 1px solid var(--sn-border); border-radius: 14px; width: min(1400px, 100%); height: 100%; display: flex; flex-direction: column; padding: 12px 14px; box-shadow: 0 20px 60px rgba(0,0,0,.4); }
+.mm-dialog {
+  border: 0; padding: 0; margin: auto; background: transparent; color: var(--sn-fg);
+  width: min(1400px, calc(100vw - 32px)); height: calc(100vh - 32px); max-width: none; max-height: none; overflow: visible;
+  font-family: "Roboto", "Segoe UI", system-ui, -apple-system, sans-serif; font-size: 14px;
+}
+.mm-dialog::backdrop { background: rgba(10, 10, 14, .6); }
+.mm-dialog .mm-close { gap: 6px; }
+.mm-overlay-card { background: var(--sn-bg); border: 1px solid var(--sn-border); border-radius: 14px; width: 100%; height: 100%; display: flex; flex-direction: column; padding: 12px 14px; box-shadow: 0 20px 60px rgba(0,0,0,.4); }
 .mm-overlay-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .mm-overlay-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.mm-overlay-body .mm-view { flex: 1; max-height: none; display: grid; place-items: center; }
+.mm-overlay-body .mm-view { flex: 1; max-height: none; display: grid; place-items: safe center; }
 
 /* Chat */
 .sn-chat-log { max-height: 440px; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px; }
