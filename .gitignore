@@ -4,3 +4,5 @@ dist/
 *.crx
 *.pem
 .DS_Store
+marketing/linkedin/*.png
+marketing/linkedin/*.pdf
