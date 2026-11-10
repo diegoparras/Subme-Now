@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "__MSG_extName__",
   "short_name": "__MSG_extShortName__",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "__MSG_extDescription__",
   "default_locale": "es",
   "homepage_url": "https://github.com/diegoparras/Subme-Now",
@@ -24,11 +24,15 @@
     "page": "src/options/options.html",
     "open_in_tab": true
   },
+  "side_panel": {
+    "default_path": "src/sidepanel/sidepanel.html"
+  },
   "background": {
     "service_worker": "src/background.js"
   },
   "permissions": [
-    "storage"
+    "storage",
+    "sidePanel"
   ],
   "host_permissions": [
     "https://openrouter.ai/*",

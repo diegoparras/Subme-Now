@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subme Now — Biblioteca</title>
+  <link rel="stylesheet" href="library.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <img data-logo src="../../icons/icon48.png" alt="" width="36" height="36">
+      <div><h1>Biblioteca</h1><p id="stats">Cargando…</p></div>
+    </div>
+    <div class="top-actions">
+      <button class="btn primary" id="reviewBtn" type="button"></button>
+      <div class="dropdown">
+        <button class="btn" id="exportBtn" type="button"></button>
+        <div class="menu" id="exportMenu" hidden>
+          <button type="button" data-export="md">Markdown (.md)</button>
+          <button type="button" data-export="json">Respaldo completo (.json)</button>
+          <button type="button" data-export="import">Importar respaldo (.json)…</button>
+        </div>
+      </div>
+      <button class="btn icon" id="settingsBtn" type="button" title="Ajustes del historial"></button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+  </header>
+
+  <section class="settings card" id="settings" hidden>
+    <h2>Historial</h2>
+    <label class="check"><input type="checkbox" id="historyEnabled"> <span>Guardar automáticamente los resultados, el chat y el progreso de cada video <small>(solo en este navegador)</small></span></label>
+    <label class="field-inline">Borrar automáticamente los videos sin actividad después de
+      <select id="historyDays">
+        <option value="0">nunca</option>
+        <option value="7">7 días</option>
+        <option value="30">30 días</option>
+        <option value="90">90 días</option>
+        <option value="180">6 meses</option>
+        <option value="365">1 año</option>
+      </select>
+      <small>Los favoritos no se borran.</small>
+    </label>
+    <div class="row-end"><button class="btn danger" id="clearAll" type="button">Borrar todo el historial</button></div>
+  </section>
+
+  <div class="filters">
+    <div class="search"><span id="searchIcon"></span><input type="search" id="q" placeholder="Buscar en todo lo guardado: resúmenes, chats, transcripciones…" autocomplete="off"></div>
+    <select id="fChannel" title="Canal"><option value="">Todos los canales</option></select>
+    <select id="fType" title="Tipo de resultado"><option value="">Todos los tipos</option></select>
+    <select id="fDate" title="Fecha">
+      <option value="">Cualquier fecha</option>
+      <option value="1">Hoy</option>
+      <option value="7">Últimos 7 días</option>
+      <option value="30">Últimos 30 días</option>
+      <option value="365">Último año</option>
+    </select>
+    <select id="fTag" title="Etiqueta"><option value="">Todas las etiquetas</option></select>
+    <button class="btn toggle" id="fFav" type="button" aria-pressed="false"></button>
+  </div>
+
+  <main id="main"></main>
+
+  <div class="detail" id="detail" hidden></div>
+  <div class="review" id="review" hidden></div>
+  <div class="toast" id="toast"></div>
+
+  <script src="../shared/utils.js"></script>
+  <script src="../shared/settings.js"></script>
+  <script src="../shared/icons.js"></script>
+  <script src="../shared/logo.js"></script>
+  <script src="../shared/prompts.js"></script>
+  <script src="../shared/markdown.js"></script>
+  <script src="../shared/history.js"></script>
+  <script src="../content/styles.js"></script>
+  <script src="../content/views.js"></script>
+  <script src="../content/mindmap.js"></script>
+  <script src="../content/surfaces.js"></script>
+  <script src="library.js"></script>
+</body>
+</html>

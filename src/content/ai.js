@@ -8,7 +8,7 @@
    * Inicia una respuesta en streaming.
    * Devuelve {promise, abort}. promise resuelve con {text, notice}.
    */
-  function stream(payload, onDelta) {
+  function stream(payload, onDelta, portName = 'subme-ai') {
     let port = null;
     let ping = null;
     let finish = null;
@@ -28,7 +28,7 @@
         if (err) reject(err); else resolve(value);
       };
       try {
-        port = chrome.runtime.connect({ name: 'subme-ai' });
+        port = chrome.runtime.connect({ name: portName });
       } catch {
         finish(new Error('Subme Now se actualizó o reinició. Recarga la página de YouTube.'));
         return;
@@ -98,5 +98,8 @@
     };
   }
 
-  SN.ai = { stream, buildContext };
+  /** Transcripción con IA (Gemini lee el video de YouTube). Devuelve {promise, abort}. */
+  const transcribe = (videoId, onDelta) => stream({ videoId }, onDelta, 'subme-transcribe');
+
+  SN.ai = { stream, buildContext, transcribe };
 })();

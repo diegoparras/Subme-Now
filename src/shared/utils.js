@@ -119,7 +119,24 @@
     }
   }
 
+  /** Convierte las líneas "[mm:ss] texto" en segmentos de transcripción. */
+  function parseTranscriptLines(text) {
+    const out = [];
+    for (const raw of String(text || '').split('\n')) {
+      const m = /^\s*[-*]?\s*\[?((?:\d{1,2}:)?\d{1,2}:\d{2})(?:[.,]\d+)?\]?\s*[-–:]?\s*(.+?)\s*$/.exec(raw);
+      if (!m) continue;
+      const parts = m[1].split(':').map(Number);
+      const start = parts.reduce((a, n) => a * 60 + n, 0);
+      const t = m[2].replace(/^\(no speech\)$/i, '').trim();
+      if (t) out.push({ start, text: t });
+    }
+    out.sort((a, b) => a.start - b.start);
+    out.forEach((s, i) => { s.end = out[i + 1] ? Math.min(Math.max(s.start, out[i + 1].start), s.start + 20) : s.start + 4; });
+    return out;
+  }
+
   root.SubmeUtils = {
+    parseTranscriptLines,
     formatTime, parseTime, escapeHtml, normalizeSegments, groupSegments,
     toTXT, toPlainParagraphs, toSRT, toVTT, toMarkdown, safeFilename, downloadText, copyText,
   };

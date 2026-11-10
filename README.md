@@ -28,6 +28,24 @@ Sin servidores intermedios: la transcripción sale directo de YouTube y las cons
 - Cualquier resultado, la transcripción o el chat se pueden **desacoplar** en una ventana flotante: se arrastra, se redimensiona desde los bordes, se minimiza y recuerda su posición.
 - Desde la ventana, **"Abrir en una ventana aparte"** la convierte en una ventana del navegador que puedes llevar a **otro monitor**; sigue controlando el video.
 
+### 📚 Historial y biblioteca (v1.6)
+- **Todo se guarda solo**: cada resultado, el chat y el progreso (tarjetas sabidas, respuestas del quiz, pasos hechos) quedan guardados por video. Al volver, los ves al instante **sin volver a pagarle a la IA** (con ↻ los regeneras).
+- **Biblioteca** (botón con forma de libro): todos tus videos con miniatura, canal, fecha y resultados.
+  - **Búsqueda de texto completo** en resúmenes, chats y transcripciones, sin importar acentos, que te dice **en qué minuto** está cada coincidencia.
+  - Filtros por canal, tipo de resultado y fecha; **favoritos** y **etiquetas**.
+  - **Repaso de tarjetas combinado**: todas las flashcards de todos tus videos en un mazo con repetición espaciada.
+  - **Exportar** toda la biblioteca a Markdown o a un respaldo JSON (que se puede volver a importar).
+  - **Borrado automático** de lo que no usas después de X días (los favoritos se conservan), o historial desactivado.
+
+### 🎙️ Transcribir con IA (v1.6)
+- Para videos **sin subtítulos**: Gemini mira el video desde su URL y escribe la transcripción con marcas de tiempo. Usa tu API key de Gemini, funciona con videos **públicos** y queda guardada para no pagarla dos veces.
+
+### 🧭 Panel lateral de Chrome (v1.6)
+- Abre Subme Now en el **panel lateral del navegador** (botón del panel o ícono de la barra). Sigue al video de la pestaña activa, salta en el video al hacer clic y deja libre la página de YouTube.
+
+### 🎨 El logo toma tu color (v1.6)
+- El color de la interfaz elegido en la configuración también cambia el **logo** (en el panel, la configuración, la biblioteca y el ícono de la barra).
+
 ### ✨ Acciones de IA (con tu API key)
 | Acción | Qué hace |
 |---|---|
@@ -115,6 +133,12 @@ YouTube (página)                         Service worker                  Provee
 
 **IA** (`src/shared/providers.js` + `src/background.js`): las llamadas se hacen desde el service worker con streaming SSE. Cada proveedor tiene su adaptador (OpenAI-compatible, Anthropic Messages API, Gemini `streamGenerateContent`).
 
+**Transcribir con IA**: el service worker llama a Gemini `streamGenerateContent` con la URL del video como `file_data.file_uri` (solo videos públicos; en el nivel gratuito, hasta 8 horas de video por día) y resolución de video baja para gastar menos tokens. La respuesta (`[mm:ss] texto`) se convierte en segmentos.
+
+**Historial** (`src/shared/history.js`): IndexedDB en el origen de la extensión. YouTube no tiene acceso: el panel guarda y lee a través del service worker; la biblioteca (`src/library/`) lo usa directamente.
+
+**Panel lateral** (`src/sidepanel/`): reutiliza el mismo panel. La transcripción la obtiene la pestaña de YouTube (que es la que puede leerla) y el panel recibe el tiempo del video y le pide los saltos por un puerto.
+
 ### Estructura
 
 ```
@@ -128,6 +152,8 @@ src/
     markdown.js           # renderizador Markdown seguro (con marcas de tiempo clicables)
     settings.js           # configuración en chrome.storage.local
     vault.js              # cifrado opcional de las API keys
+    history.js            # historial local por video (IndexedDB)
+    logo.js               # logo con el color de acento
     secret-input.js/.css  # ingreso del secreto: contraseña, imágenes o patrón
     utils.js              # formatos de exportación (TXT, SRT, VTT, MD), tiempos, etc.
   content/
@@ -142,6 +168,8 @@ src/
   options/                # página de configuración
   unlock/                 # ventana para desbloquear las claves
   popout/                 # ventana aparte del navegador (otro monitor)
+  library/                # biblioteca: búsqueda, filtros, repaso y exportación
+  sidepanel/              # panel lateral de Chrome
 _locales/                 # nombre y descripción en español e inglés
 tests/e2e.mjs             # prueba end-to-end con Playwright (YouTube y API simulados)
 scripts/build.sh          # genera el .zip para la Chrome Web Store
@@ -156,7 +184,7 @@ PRIVACY.md                # política de privacidad
 npm test
 ```
 
-Carga la extensión en Chromium, simula una página de YouTube y una API compatible con OpenAI, y verifica: carga de transcripción, cambio de idioma, búsqueda, salto en el video, descarga SRT, resumen con IA en streaming, marcas de tiempo clicables, cambio de modelo desde el panel, chat, Shorts, navegación SPA, que las API keys no sean accesibles desde YouTube y el flujo completo de protección con contraseña, imágenes y patrón. Requiere Playwright con Chromium instalado.
+Carga la extensión en Chromium, simula una página de YouTube y una API compatible con OpenAI, y verifica: carga de transcripción, cambio de idioma, búsqueda, salto en el video, descarga SRT, resumen con IA en streaming, marcas de tiempo clicables, cambio de modelo desde el panel, chat, Shorts, navegación SPA, historial y restauración sin llamar a la IA, biblioteca (búsqueda con minuto, filtros, favoritos, etiquetas, repaso, exportación y borrado automático), transcripción con IA, panel lateral, logo con el color de acento, que las API keys no sean accesibles desde YouTube y el flujo completo de protección con contraseña, imágenes y patrón. Requiere Playwright con Chromium instalado.
 
 ### Publicar en la Chrome Web Store
 
@@ -180,15 +208,8 @@ Genera `dist/subme-now-<versión>.zip`. Los textos de la ficha están en [`store
   Las claves se cifran con AES-GCM 256 y una clave derivada del secreto (PBKDF2-SHA256, 600.000 iteraciones). En disco solo queda el texto cifrado. Se desbloquean en una ventana propia de la extensión, nunca dentro de YouTube, y permanecen en memoria hasta cerrar el navegador o tras el tiempo de inactividad que elijas.
 - Política completa: [PRIVACY.md](PRIVACY.md).
 - Solo se envía la transcripción al proveedor de IA cuando haces clic en una acción o en el chat (o si activas el resumen automático).
-- Permisos: `storage` y acceso a los dominios de las APIs de IA. Para un proveedor personalizado se pide permiso solo para su dominio.
-
-## Ideas para próximas versiones
-
-- Soporte para videos embebidos en otros sitios.
-- Integración directa con Notion.
-- Historial de resúmenes guardados por video.
-- Comparar o resumir varios videos (por ejemplo, una playlist completa).
-- Voces de IA y resumen en audio estilo podcast.
+- El historial se guarda solo en tu navegador (IndexedDB de la extensión) y se puede desactivar o borrar desde la biblioteca.
+- Permisos: `storage`, `sidePanel` y acceso a los dominios de las APIs de IA. Para un proveedor personalizado se pide permiso solo para su dominio.
 
 ## Licencia
 

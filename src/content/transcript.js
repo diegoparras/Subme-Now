@@ -93,6 +93,7 @@
       url: `https://www.youtube.com/watch?v=${videoId}`,
       title: details.title || document.title.replace(/ - YouTube$/, ''),
       author: details.author || '',
+      channelId: details.channelId || '',
       lengthSeconds: Number(details.lengthSeconds) || 0,
       tracks,
       translationLanguages,

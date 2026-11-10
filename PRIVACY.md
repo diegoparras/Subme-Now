@@ -1,6 +1,6 @@
 # Política de privacidad de Subme Now
 
-_Última actualización: 31 de octubre de 2026_
+_Última actualización: 10 de noviembre de 2026_
 
 Subme Now es una extensión de navegador que muestra la transcripción de los videos de YouTube y permite procesarla con un servicio de inteligencia artificial elegido por el usuario. Esta política explica qué datos maneja y cómo.
 
@@ -10,6 +10,7 @@ Subme Now es una extensión de navegador que muestra la transcripción de los vi
 - **No hay analíticas, rastreo ni publicidad.**
 - Las API keys que ingresas **se guardan solo en tu navegador** y se envían únicamente al proveedor de IA que elegiste.
 - La transcripción de un video se envía al proveedor de IA **solo cuando lo pides** (al pulsar una acción o enviar un mensaje en el chat), o automáticamente si activas la opción "Generar el resumen automáticamente".
+- El **historial** (resultados, chats, progreso de estudio y transcripciones) se guarda **solo en tu navegador**. Puedes desactivarlo, programar su borrado automático o borrarlo cuando quieras.
 
 ## Datos que maneja la extensión
 
@@ -18,8 +19,10 @@ Subme Now es una extensión de navegador que muestra la transcripción de los vi
 | API keys de proveedores de IA | Autenticarte ante el proveedor que elegiste | `chrome.storage.local` de tu navegador (no se sincroniza). Solo se envía al proveedor correspondiente por HTTPS. Las páginas web, incluida YouTube, no pueden leerlas. |
 | Secreto de protección (opcional: contraseña, secuencia de imágenes o patrón) | Cifrar tus API keys | **No se guarda.** Se usa solo para derivar la clave de cifrado (PBKDF2-SHA256, 600.000 iteraciones); en disco queda únicamente el texto cifrado (AES-GCM 256). Las claves descifradas viven en memoria (`chrome.storage.session`) hasta que cierras el navegador o se bloquean por inactividad. |
 | Preferencias (proveedor, modelo, idioma, acciones personalizadas) | Recordar tu configuración | `chrome.storage.local` de tu navegador |
-| Transcripción, título, canal y URL del video | Generar resúmenes, respuestas del chat y demás acciones | Se obtiene de YouTube y se envía al proveedor de IA elegido solo cuando usas una función de IA. No se almacena de forma permanente. |
-| Preguntas que escribes en el chat o en el prompt libre | Responderte | Se envían al proveedor de IA elegido. No se almacenan de forma permanente. |
+| Transcripción, título, canal y URL del video | Generar resúmenes, respuestas del chat y demás acciones | Se obtiene de YouTube y se envía al proveedor de IA elegido solo cuando usas una función de IA. |
+| Preguntas que escribes en el chat o en el prompt libre | Responderte | Se envían al proveedor de IA elegido. |
+| Historial: resultados de IA, conversaciones, progreso de estudio (tarjetas, quiz, pasos), favoritos, etiquetas y transcripciones de los videos en los que usaste la IA | Mostrarte de nuevo lo que ya generaste sin volver a consultar a la IA, y la biblioteca (búsqueda, repaso y exportación) | Base de datos local de tu navegador (IndexedDB de la extensión). No se sincroniza ni se envía a nadie. Se puede desactivar, borrar por antigüedad o borrar por completo desde la biblioteca. |
+| URL de un video sin subtítulos (solo si pulsas "Transcribir con IA") | Que Gemini transcriba el audio del video | Se envía a la API de Gemini de Google con tu propia API key. Google accede al video público de YouTube para transcribirlo. |
 
 **Lectura en voz alta:** usa las voces instaladas en tu navegador o sistema operativo. Algunas voces "en línea" que ofrece el navegador (por ejemplo, las de Google en Chrome) procesan el texto en los servidores de ese proveedor; las voces locales del sistema funcionan sin conexión. Puedes elegir la voz en el panel.
 
@@ -40,7 +43,8 @@ Cuando usas una función de IA, los datos indicados arriba se envían directamen
 
 ## Permisos
 
-- **storage**: guardar tu configuración y tus API keys localmente.
+- **storage**: guardar tu configuración, tus API keys y tu historial localmente.
+- **sidePanel**: mostrar Subme Now en el panel lateral de Chrome cuando lo abres.
 - **Acceso a youtube.com**: mostrar el panel junto al video y leer la transcripción.
 - **Acceso a los dominios de las APIs de IA** (openrouter.ai, api.openai.com, api.x.ai, api.anthropic.com, generativelanguage.googleapis.com): enviar las solicitudes que pidas.
 - **Acceso opcional a otros dominios**: solo se solicita, con tu aprobación explícita, si configuras un proveedor personalizado, y se limita a ese dominio.
@@ -51,7 +55,9 @@ El uso de la información que recibe Subme Now cumple la [Política de Datos de 
 
 ## Cómo borrar tus datos
 
-En la configuración de Subme Now pulsa **Restablecer configuración**, o desinstala la extensión: todos los datos locales se eliminan.
+- **Historial:** en la biblioteca de Subme Now, borra un video con **Borrar** o todo con **Ajustes del historial → Borrar todo el historial**.
+- **Configuración y claves:** en la configuración pulsa **Restablecer configuración**.
+- **Todo:** desinstala la extensión y se eliminan todos los datos locales.
 
 ## Contacto
 
@@ -61,4 +67,4 @@ Para consultas sobre privacidad abre un issue en https://github.com/diegoparras/
 
 # Privacy Policy (English)
 
-Subme Now has no servers and collects no analytics. API keys are stored only in your browser (`chrome.storage.local`, not synced, not readable by web pages) and are sent only to the AI provider you selected. Video transcripts, titles and your chat questions are sent to that provider only when you use an AI feature (or automatically if you enable auto-summary). Data is never sold, never used for advertising or creditworthiness, and never transferred to anyone other than your chosen AI provider. Uninstalling the extension or using "Reset settings" deletes all local data. The use of information complies with the Chrome Web Store User Data Policy, including the Limited Use requirements. Contact: https://github.com/diegoparras/Subme-Now/issues
+Subme Now has no servers and collects no analytics. API keys are stored only in your browser (`chrome.storage.local`, not synced, not readable by web pages) and are sent only to the AI provider you selected. Video transcripts, titles and your chat questions are sent to that provider only when you use an AI feature (or automatically if you enable auto-summary). Your history (AI results, chats, study progress and transcripts) is stored only in your browser's local database and can be disabled or deleted at any time from the library. "Transcribe with AI" sends the URL of a public video to Google's Gemini API with your own key. Data is never sold, never used for advertising or creditworthiness, and never transferred to anyone other than your chosen AI provider. Uninstalling the extension or using "Reset settings" deletes all local data. The use of information complies with the Chrome Web Store User Data Policy, including the Limited Use requirements. Contact: https://github.com/diegoparras/Subme-Now/issues

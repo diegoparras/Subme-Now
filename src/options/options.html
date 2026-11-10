@@ -10,7 +10,7 @@
 <body>
   <main class="wrap">
     <header class="top">
-      <div class="brand"><img src="../../icons/icon48.png" alt="" width="40" height="40"><div><h1>Subme Now</h1><p>Transcripciones e IA para YouTube</p></div></div>
+      <div class="brand"><img data-logo src="../../icons/icon48.png" alt="" width="40" height="40"><div><h1>Subme Now</h1><p>Transcripciones e IA para YouTube</p></div></div>
       <span class="saved" id="saved" aria-live="polite"></span>
     </header>
 
@@ -102,6 +102,7 @@
       <label class="check"><input type="checkbox" id="panelCollapsed"> Iniciar el panel contraído en videos</label>
       <label class="check"><input type="checkbox" id="shortsCollapsed"> Iniciar el panel flotante contraído en Shorts</label>
       <label class="check"><input type="checkbox" id="autoSummary"> Generar el resumen automáticamente al abrir un video <small>(consume créditos de la API en cada video)</small></label>
+      <label class="check"><input type="checkbox" id="sidePanelOnAction"> El ícono de Subme Now en la barra de Chrome abre el panel lateral <small>(también puedes abrirlo con el botón del panel en YouTube; desmárcalo para que el ícono abra esta configuración)</small></label>
     </section>
 
     <section class="card">
@@ -127,6 +128,24 @@
       </div>
     </section>
 
+    <section class="card">
+      <h2>Historial y biblioteca</h2>
+      <p class="muted">Cada resultado, conversación y transcripción hecha con IA se guarda en este navegador. Al volver a un video ves lo que ya generaste sin volver a pagarle a la IA, y en la biblioteca puedes buscar en todo, repasar tus tarjetas y exportarlo.</p>
+      <label class="check"><input type="checkbox" id="historyEnabled"> Guardar el historial automáticamente</label>
+      <label class="field"><span>Borrar los videos sin actividad después de</span>
+        <select id="historyDays">
+          <option value="0">Nunca</option>
+          <option value="7">7 días</option>
+          <option value="30">30 días</option>
+          <option value="90">90 días</option>
+          <option value="180">6 meses</option>
+          <option value="365">1 año</option>
+        </select>
+        <small>Los videos marcados como favoritos no se borran.</small>
+      </label>
+      <button type="button" class="btn" id="openLibrary">Abrir la biblioteca</button>
+    </section>
+
     <section class="card" id="security">
       <h2>5. Seguridad: proteger las API keys</h2>
       <div id="securityBody"></div>
@@ -138,6 +157,7 @@
         <li>Subme Now no tiene servidores propios: la transcripción se obtiene directamente de YouTube y las consultas van directo del navegador al proveedor que elijas.</li>
         <li>Las API keys se guardan en <code>chrome.storage.local</code> (no se sincronizan con tu cuenta).</li>
         <li>Nunca se envía nada a la IA sin que hagas clic en una acción (salvo que actives el resumen automático).</li>
+        <li>El historial (resultados, chats, progreso y transcripciones) se guarda solo en este navegador. Puedes desactivarlo o borrarlo desde la biblioteca.</li>
       </ul>
       <button type="button" class="btn danger" id="reset">Restablecer configuración</button>
     </section>
@@ -146,6 +166,7 @@
   <script src="../shared/settings.js"></script>
   <script src="../shared/providers.js"></script>
   <script src="../shared/icons.js"></script>
+  <script src="../shared/logo.js"></script>
   <script src="../shared/secret-input.js"></script>
   <script src="../shared/vault.js"></script>
   <script src="../shared/prompts.js"></script>

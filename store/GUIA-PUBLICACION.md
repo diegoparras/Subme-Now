@@ -10,7 +10,7 @@ Tiempo estimado: 30–45 minutos + revisión de Google (normalmente de 1 a 7 dí
    ```bash
    npm run build
    ```
-   Crea `dist/subme-now-1.5.0.zip` (solo `manifest.json`, `_locales`, `icons` y `src`).
+   Crea `dist/subme-now-1.6.0.zip` (solo `manifest.json`, `_locales`, `icons` y `src`).
 3. **Prueba el paquete**: descomprímelo en una carpeta nueva y cárgalo en `chrome://extensions` → *Cargar descomprimida*. Revisa un video normal, un Short y una acción de IA.
 
 ## 1. Cuenta de desarrollador
@@ -21,7 +21,7 @@ Tiempo estimado: 30–45 minutos + revisión de Google (normalmente de 1 a 7 dí
 
 ## 2. Subir el paquete
 
-**Items → New item →** sube `dist/subme-now-1.5.0.zip`.
+**Items → New item →** sube `dist/subme-now-1.6.0.zip`.
 
 ## 3. Pestaña "Store listing"
 
@@ -29,7 +29,7 @@ Copia los textos de `store/FICHA-TIENDA.md`:
 
 - Descripción (español), categoría **Tools**, idioma **Español**.
 - Ícono de la tienda: `icons/icon128.png`.
-- Capturas: `store/screenshots/1-transcripcion.png` … `5-shorts.png`.
+- Capturas: `store/screenshots/1-transcripcion.png` … `5-panel-lateral.png`.
 - Mosaico promocional pequeño: `store/promo-small-440x280.png`. La marquesina `store/marquee-1400x560.png` es opcional.
 - Homepage URL: `https://github.com/diegoparras/Subme-Now`
 - Support URL: `https://github.com/diegoparras/Subme-Now/issues`
@@ -46,7 +46,8 @@ Mostrar la transcripción de los videos de YouTube junto al reproductor y permit
 
 | Permiso | Justificación (copiar) |
 |---|---|
-| `storage` | Guarda localmente la configuración del usuario (proveedor de IA, modelo, idioma, acciones personalizadas) y sus API keys. Nada se sincroniza ni se envía a servidores del desarrollador. |
+| `storage` | Guarda localmente la configuración del usuario (proveedor de IA, modelo, idioma, acciones personalizadas), sus API keys y su historial. Nada se sincroniza ni se envía a servidores del desarrollador. |
+| `sidePanel` | Permite abrir Subme Now en el panel lateral de Chrome, como alternativa al panel dentro de YouTube. Solo se abre cuando el usuario lo pide. |
 | Host `https://www.youtube.com/*` (content script) | Inserta el panel de Subme Now en las páginas de videos y Shorts de YouTube y obtiene la transcripción del video que el usuario está viendo. |
 | Hosts `openrouter.ai`, `api.openai.com`, `api.x.ai`, `api.anthropic.com`, `generativelanguage.googleapis.com` | Envía, solo cuando el usuario lo pide, la transcripción y su pregunta al proveedor de IA que configuró con su propia API key, y lista los modelos disponibles en su cuenta. |
 | Hosts opcionales `https://*/*`, `http://*/*` | Solo se solicitan en tiempo de ejecución, con aprobación explícita, cuando el usuario configura un proveedor personalizado compatible con OpenAI (por ejemplo, Ollama local o Groq). El permiso se pide exclusivamente para el dominio que el usuario escribió. |

@@ -5,9 +5,10 @@ Las carpetas siguen el menú de la izquierda del Developer Dashboard. Cada texto
 ## Si ya enviaste una versión anterior
 1. **Paquete → Subir un paquete nuevo** (`1-Paquete/{PAQUETE}`).
 2. **Ficha → Descripción**: reemplázala por `2-Ficha/textos/descripcion-es.txt` (y la inglesa por `descripcion-en.txt`) si la versión agrega funciones.
-3. **Ficha → Capturas**: reemplaza las 5 si cambiaron.
-4. **Acceso → Instrucciones de la prueba**: reemplázalas por `5-Instrucciones-de-la-prueba/instrucciones-de-la-prueba.txt`.
-5. **Enviar a revisión**.
+3. **Ficha → Capturas**: reemplaza las 5 si cambiaron (en `opcional/` hay más, por si prefieres otras: chat, Shorts, búsqueda y repaso).
+4. **Privacidad**: si la versión agrega permisos, completa su justificación (en la 1.6: `sidePanel`).
+5. **Acceso → Instrucciones de la prueba**: reemplázalas por `5-Instrucciones-de-la-prueba/instrucciones-de-la-prueba.txt`.
+6. **Enviar a revisión**.
 
 ---
 
@@ -29,13 +30,14 @@ Sube `1-Paquete/{PAQUETE}` **sin descomprimir**. El título (**Subme Now: AI YT 
 
 **Ficha en inglés:** en "Idioma de edición actual" agrega **inglés – en** y pega `descripcion-en.txt`, con las mismas 5 capturas.
 
-No subas `opcional/6-configuracion.png`: muestra nombres de proveedores y la tienda ya rechazó una vez por exceso de marcas. `iconos-de-la-extension/` es solo de referencia, porque ya van dentro del paquete.
+No subas `opcional/10-configuracion.png`: muestra nombres de proveedores y la tienda ya rechazó una vez por exceso de marcas. `iconos-de-la-extension/` es solo de referencia, porque ya van dentro del paquete.
 
 ## 3. Privacidad
 | Campo | Archivo |
 |---|---|
 | Descripción de la finalidad única | `3-Privacidad/1-finalidad-unica.txt` |
 | Justificación de storage | `3-Privacidad/2-justificacion-storage.txt` |
+| Justificación de sidePanel | `3-Privacidad/2-justificacion-sidepanel.txt` |
 | Justificación de Permiso de host | `3-Privacidad/3-justificacion-permiso-de-host.txt` |
 | ¿Utilizas código remoto? | **No** (`4-codigo-remoto.txt`) |
 | Uso de datos y certificaciones | `3-Privacidad/5-uso-de-datos.txt` |

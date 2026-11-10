@@ -223,7 +223,33 @@
     return new Error(`${hints[res.status] || `Error HTTP ${res.status}.`} ${text ? `(${String(text).slice(0, 300)})` : ''}`.trim());
   }
 
+  const TRANSCRIBE_PROMPT = [
+    'Transcribe the spoken audio of this video verbatim, in the language in which it is spoken. Do not translate, summarize or correct it.',
+    'Output ONLY transcript lines: one line per sentence or short phrase, each starting with the time it is spoken, as [mm:ss] (or [h:mm:ss] after the first hour).',
+    'Do not add titles, notes, speaker descriptions or any other text. If a fragment has no speech, skip it.',
+    'If the video has no speech at all, output exactly: [00:00] (no speech)',
+  ].join('\n');
+
+  /**
+   * Transcripción con Gemini: el modelo lee el video de YouTube directamente desde su URL
+   * (solo videos públicos). Usa resolución de video baja para gastar menos tokens.
+   */
+  function buildTranscribeRequest(cfg, videoUrl) {
+    const model = (cfg.model || 'gemini-2.5-flash').replace(/^models\//, '');
+    const generationConfig = { temperature: 0, maxOutputTokens: 65536, mediaResolution: 'MEDIA_RESOLUTION_LOW' };
+    if (/^gemini-2\.5-flash/.test(model)) generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    const body = {
+      contents: [{ role: 'user', parts: [{ file_data: { file_uri: videoUrl } }, { text: TRANSCRIBE_PROMPT }] }],
+      generationConfig,
+    };
+    return {
+      url: `${cfg.baseUrl}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`,
+      init: { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.apiKey }, body: JSON.stringify(body) },
+    };
+  }
+
   root.SubmeProviders = {
+    buildTranscribeRequest,
     PROVIDERS, resolveConfig, validateConfig, buildChatRequest, parseStreamEvent, buildModelsRequest, parseModels, readError,
   };
 })(globalThis);

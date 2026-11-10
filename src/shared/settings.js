@@ -30,6 +30,9 @@
     windows: {},
     onboardingDone: false,
     density: 'comfortable',
+    historyEnabled: true,
+    historyDays: 0,
+    sidePanelOnAction: true,
   };
 
   function merge(base, extra) {
