@@ -38,7 +38,19 @@ const server = http.createServer((req, res) => {
     requests.push(json);
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
     const last = json.messages.at(-1).content;
-    const answer = last.includes('mapa mental') ? [
+    const STRUCT = {
+      '"cards"': { cards: [{ front: '¿Qué es la constancia?', back: 'Estudiar todos los días un poco.', t: '00:14' }, { front: '¿Cuántas palabras por día?', back: 'Veinte.', t: '04:05' }, { front: '¿Qué pilar es el primero?', back: 'La exposición diaria.', t: '01:12' }] },
+      '"questions"': { questions: [{ q: '¿Qué gana a la intensidad?', options: ['La suerte', 'La constancia', 'El talento', 'La gramática'], answer: 1, explanation: 'Lo dice al inicio.', t: '00:14' }, { q: '¿Cuántas palabras por día?', options: ['5', '10', '20', '100'], answer: 2, explanation: 'Con flashcards.', t: '04:05' }] },
+      '"chapters"': { chapters: [{ t: '00:00', title: 'Introducción', summary: 'Presentación' }, { t: '00:08', title: 'El método', summary: 'Los pilares' }, { t: '00:20', title: 'Cierre', summary: 'Resumen final' }] },
+      '"points"': { points: [{ title: 'Constancia', detail: 'Mejor poco cada día.', t: '00:14' }, { title: 'Exposición', detail: 'Podcasts y series.', t: '01:12' }] },
+      '"quotes"': { quotes: [{ text: 'La constancia gana a la intensidad.', t: '00:14', why: 'Resume la idea central.' }] },
+      '"steps"': { kind: 'tutorial', requirements: ['App de flashcards'], steps: [{ title: 'Escuchar un podcast', detail: 'En el viaje.', t: '01:12' }, { title: 'Repasar 20 palabras', detail: 'Por la mañana.', t: '04:05' }], warnings: ['No estudiar solo gramática'] },
+      '"claims"': { claims: [{ claim: '1.000 palabras cubren el 80%', t: '05:40', verdict: 'correcto', explanation: 'Coincide con estudios.' }, { claim: 'Se aprende en 6 meses', t: '00:09', verdict: 'dudoso', explanation: 'Depende del idioma.' }], opinions: ['La gramática es secundaria'], missing: ['No cita fuentes'] },
+      '"posts"': { posts: ['Aprender un idioma en 6 meses es posible.', 'El secreto: constancia diaria.', 'Conclusión: empieza hoy.'] },
+      '"hashtags"': { text: 'Aprendí algo valioso hoy.\n\nLa constancia gana a la intensidad.\n\n¿Y tú qué idioma estudias?', hashtags: ['Idiomas', 'Aprendizaje', 'Productividad'] },
+    };
+    const structKey = Object.keys(STRUCT).find((k) => last.includes(k) && !last.includes('"tldr"'));
+    const answer = structKey ? JSON.stringify(STRUCT[structKey]) : last.includes('mapa mental') ? [
       '- Aprender idiomas en 6 meses',
       '  - Exposición diaria [01:12]',
       '    - Podcasts',
@@ -118,6 +130,7 @@ try {
   await opts.evaluate(async (api) => {
     const { settings = {} } = await chrome.storage.local.get('settings');
     settings.provider = 'custom';
+    settings.onboardingDone = true;
     settings.providers = { custom: { baseUrl: api, model: 'fake-model', apiKey: '' } };
     await chrome.storage.local.set({ settings });
   }, API);
@@ -366,6 +379,129 @@ try {
   await page.locator('#subme-now-host .sn-output-wrap').screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'v13-escuchar.png') });
   await page.locator('#subme-now-host [data-act="ttsstop"]').click().catch(() => {});
 
+  // ---------- v1.5: vistas gráficas ----------
+  const runView = async (id, sel) => {
+    await page.locator(`#subme-now-host [data-action="${id}"]`).click();
+    return page.waitForFunction((s) => document.querySelector('#subme-now-host').shadowRoot.querySelector(`.sn-output ${s}`), sel, { timeout: 10000 }).then(() => true).catch(() => false);
+  };
+  const sh = (sel) => `#subme-now-host .sn-output ${sel}`;
+  check('Vista: flashcards como tarjeta que se da vuelta', await runView('flashcards', '.vw-flip'));
+  await page.locator(sh('.vw-flip')).click();
+  const flipped = await page.locator(sh('.vw-flip.flipped')).count();
+  await page.locator(sh('.vw-know')).click();
+  const fcMeta = await page.locator(sh('.vw-q-meta')).textContent();
+  check('Vista: flashcards se dan vuelta y cuentan las sabidas', flipped === 1 && fcMeta.includes('Tarjeta 2 de 3') && fcMeta.includes('1 sabidas'), fcMeta);
+  await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'v15-flashcards.png'), clip: { x: 640, y: 0, width: 640, height: 720 } });
+
+  check('Vista: quiz interactivo', await runView('quiz', '.vw-option'));
+  await page.locator(sh('.vw-option')).nth(0).click();
+  const wrong = await page.locator(sh('.vw-option.bad')).count() === 1 && await page.locator(sh('.vw-option.ok')).count() === 1;
+  await page.locator(sh('.vw-next')).click();
+  await page.locator(sh('.vw-option')).nth(2).click();
+  await page.locator(sh('.vw-next')).click();
+  const score = await page.locator(sh('.vw-score-num')).textContent();
+  check('Vista: quiz marca correcta/incorrecta y da el puntaje', wrong && score === '1/2', score);
+
+  check('Vista: capítulos con línea de tiempo', await runView('chapters', '.vw-timeline .vw-seg'));
+  await page.locator(sh('.vw-seg')).nth(1).click();
+  check('Vista: clic en la línea de tiempo salta al capítulo', (await page.evaluate(() => document.querySelector('video').currentTime)) === 8);
+  const chOn = await page.evaluate(() => [...document.querySelector('#subme-now-host').shadowRoot.querySelectorAll('.vw-chapters li')].findIndex((l) => l.classList.contains('on')));
+  check('Vista: capítulos resalta el capítulo actual', chOn === 1, String(chOn));
+
+  check('Vista: puntos clave en tarjetas', await runView('keypoints', '.vw-card'));
+  check('Vista: citas en tarjetas', await runView('quotes', '.vw-quote'));
+  check('Vista: pasos con casillas', await runView('steps', '.vw-check'));
+  await page.locator(sh('.vw-check')).first().click();
+  check('Vista: marcar un paso como hecho', (await page.locator(sh('.vw-steps li.done')).count()) === 1 && (await page.locator(sh('.vw-q-meta')).textContent()).includes('1 de 2'));
+  check('Vista: afirmaciones con veredictos de color', await runView('factcheck', '.vw-claim.ok') && (await page.locator(sh('.vw-claim.warn')).count()) === 1);
+  check('Vista: hilo con contador de caracteres', await runView('thread', '.vw-post') && (await page.locator(sh('.vw-post')).count()) === 3 && (await page.locator(sh('.vw-count')).first().textContent()).endsWith('/280'));
+  check('Vista: post de LinkedIn con vista previa', await runView('linkedin', '.vw-li'));
+  await page.locator(sh('.vw-li-copy')).click();
+  const liClip = await page.evaluate(() => navigator.clipboard.readText());
+  check('Vista: copiar el post incluye hashtags', liClip.includes('#Idiomas'), liClip.slice(-40));
+
+  // ---------- v1.5: ventanas desacoplables ----------
+  await page.locator('#subme-now-host [data-act="detachout"]').click();
+  const winSel = '.subme-now-window';
+  await page.locator(`${winSel} .vw-li`).waitFor({ timeout: 5000 });
+  check('Ventana: el resultado se desacopla en una ventana flotante', (await page.locator(winSel).count()) === 1);
+  const box0 = await page.locator(winSel).boundingBox();
+  const head = await page.locator(`${winSel} .sn-win-head`).boundingBox();
+  await page.mouse.move(head.x + 60, head.y + 20);
+  await page.mouse.down();
+  await page.mouse.move(head.x - 140, head.y + 80, { steps: 6 });
+  await page.mouse.up();
+  const box1 = await page.locator(winSel).boundingBox();
+  check('Ventana: se arrastra desde la barra de título', Math.round(box1.x - box0.x) === -200 && Math.round(box1.y - box0.y) === 60, JSON.stringify({ dx: box1.x - box0.x, dy: box1.y - box0.y }));
+  const grip = await page.locator(`${winSel} .sn-win-rs.se`).boundingBox();
+  await page.mouse.move(grip.x + 8, grip.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + 8 + 80, grip.y + 8 - 100, { steps: 6 });
+  await page.mouse.up();
+  const box2 = await page.locator(winSel).boundingBox();
+  check('Ventana: se redimensiona desde la esquina', Math.round(box2.width - box1.width) === 80 && Math.round(box2.height - box1.height) === -100, JSON.stringify({ dw: box2.width - box1.width, dh: box2.height - box1.height }));
+  await page.locator(`${winSel} [data-win="min"]`).click();
+  check('Ventana: se minimiza', Math.round((await page.locator(winSel).boundingBox()).height) === 44);
+  await page.locator(`${winSel} [data-win="min"]`).click();
+  await page.waitForTimeout(400);
+  const savedWin = await opts.evaluate(async () => (await chrome.storage.local.get('settings')).settings.windows?.result);
+  check('Ventana: recuerda posición y tamaño', savedWin && Math.round(savedWin.w) === Math.round(box2.width), JSON.stringify(savedWin));
+  await page.locator(`${winSel} [data-win="close"]`).click();
+  check('Ventana: se cierra', (await page.locator(winSel).count()) === 0);
+
+  await page.locator('#subme-now-host [data-tab="transcript"]').click();
+  await page.locator('#subme-now-host [data-act="detachtr"]').click();
+  await page.locator(`${winSel} .sn-seg`).first().waitFor({ timeout: 5000 });
+  await page.locator(`${winSel} .sn-seg`).nth(2).click();
+  check('Ventana de transcripción: clic salta en el video', (await page.evaluate(() => document.querySelector('video').currentTime)) === 8);
+  check('Ventana de transcripción: resalta la línea actual', (await page.locator(`${winSel} .sn-seg.current`).getAttribute('data-i')) === '2');
+  await page.locator(`${winSel} .sf-search`).fill('video');
+  check('Ventana de transcripción: búsqueda', (await page.locator(`${winSel} .sn-seg`).count()) === 1);
+  await page.locator(`${winSel} [data-win="close"]`).click();
+
+  await page.locator('#subme-now-host [data-tab="chat"]').click();
+  await page.locator('#subme-now-host [data-act="detachchat"]').click();
+  await page.locator(`${winSel} textarea`).fill('¿Qué dice del método?');
+  await page.locator(`${winSel} textarea`).press('Enter');
+  await page.waitForFunction(() => document.querySelector('.subme-now-window')?.shadowRoot.querySelectorAll('.sn-msg.assistant table').length > 0, null, { timeout: 10000 });
+  check('Ventana de chat: se conversa desde la ventana', (await page.locator(`${winSel} .sn-msg.user`).count()) >= 1);
+
+  // Ventana aparte del navegador (popout)
+  const [pop] = await Promise.all([context.waitForEvent('page'), page.locator(`${winSel} [data-win="popout"]`).click()]);
+  await pop.waitForSelector('#app');
+  await pop.waitForFunction(() => document.querySelector('#app')?.shadowRoot?.querySelector('.sn-msg.assistant'), null, { timeout: 10000 });
+  check('Ventana aparte: el chat se abre en otra ventana del navegador', pop.url().includes('popout.html') && (await page.locator(winSel).count()) === 0);
+  await pop.locator('#app textarea').fill('¿Y la rutina?');
+  await pop.locator('#app textarea').press('Enter');
+  await pop.waitForFunction(() => (document.querySelector('#app')?.shadowRoot?.querySelectorAll('.sn-msg.user').length || 0) >= 2, null, { timeout: 10000 });
+  check('Ventana aparte: enviar desde otra ventana usa el chat de la pestaña', true);
+  await pop.close();
+  await page.bringToFront();
+  await page.locator('#subme-now-host [data-tab="chat"]').click();
+  await page.locator('#subme-now-host [data-act="chatclear"]').click();
+
+  await page.locator('#subme-now-host [data-tab="ai"]').click();
+  await runView('chapters', '.vw-timeline');
+  await page.locator('#subme-now-host [data-act="detachout"]').click();
+  await page.locator(`${winSel} .vw-timeline`).waitFor();
+  const [pop2] = await Promise.all([context.waitForEvent('page'), page.locator(`${winSel} [data-win="popout"]`).click()]);
+  await pop2.waitForFunction(() => document.querySelector('#app')?.shadowRoot?.querySelector('.vw-seg'), null, { timeout: 10000 });
+  await pop2.locator('#app .vw-chapters a.sn-ts').nth(2).click();
+  await page.waitForFunction(() => document.querySelector('video').currentTime === 20, null, { timeout: 5000 }).catch(() => {});
+  check('Ventana aparte: los capítulos controlan el video de la pestaña', (await page.evaluate(() => document.querySelector('video').currentTime)) === 20);
+  await pop2.waitForFunction(() => document.querySelector('#app')?.shadowRoot?.querySelector('.vw-chapters li.on')?.dataset.i === '2', null, { timeout: 5000 }).catch(() => {});
+  check('Ventana aparte: sigue el tiempo del video', (await pop2.evaluate(() => document.querySelector('#app')?.shadowRoot?.querySelector('.vw-chapters li.on')?.dataset.i)) === '2');
+  await pop2.screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'v15-popout.png') });
+  await pop2.close();
+  await page.bringToFront();
+
+  // Exportar una vista gráfica produce Markdown legible
+  await runView('steps', '.vw-check');
+  await page.locator('#subme-now-host [data-act="exportmenu"]').click();
+  const [stepsDl] = await Promise.all([page.waitForEvent('download'), page.locator('#subme-now-host [data-export="md"]').click()]);
+  const stepsMd = fs.readFileSync(await stepsDl.path(), 'utf8');
+  check('Vista: exportar pasos como Markdown con casillas', stepsMd.includes('- [ ] **Escuchar un podcast**') && stepsMd.includes('[01:12](https://www.youtube.com/watch?v='), stepsMd.slice(-200));
+
   // Cambio de modelo desde el panel
   const bar = page.locator('#subme-now-host [data-ref="modelbar"]');
   check('Barra de modelo visible en IA', await bar.isVisible());
@@ -432,7 +568,7 @@ try {
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
     const before = requests.length;
     await page.locator(`#subme-now-host [data-action="${action}"]`).click();
-    await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-output table'), null, { timeout: 10000 });
+    await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-output .vw'), null, { timeout: 10000 });
     return requests.length === before + 1;
   };
   const lockFromOptions = async () => {
@@ -536,6 +672,19 @@ try {
   await opts.waitForSelector('#vNext');
   const plain = await opts.evaluate(async () => (await chrome.storage.local.get(['settings', 'vault'])));
   check('Desactivar protección restaura las claves', plain.settings.providers.anthropic.apiKey === 'sk-secreto-de-prueba' && !plain.vault);
+
+  // ---------- v1.5: pulido ----------
+  check('Tarjeta del video con título y canal', (await page.locator('#subme-now-host [data-ref="vtitle"]').textContent()) === 'Video de prueba' && (await page.locator('#subme-now-host [data-ref="vmeta"]').textContent()).includes('Canal Test'));
+  await opts.evaluate(async () => { const { settings } = await chrome.storage.local.get('settings'); settings.density = 'compact'; settings.onboardingDone = false; await chrome.storage.local.set({ settings }); });
+  await page.reload();
+  await page.locator('#subme-now-host .sn-tour-card').waitFor({ timeout: 10000 });
+  check('Recorrido guiado: aparece la primera vez', (await page.locator('#subme-now-host .sn-tour-step').textContent()).includes('1 de 3'));
+  await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'v15-tour.png'), clip: { x: 600, y: 0, width: 680, height: 720 } });
+  for (let k = 0; k < 3; k++) await page.locator('#subme-now-host [data-tour="next"]').click();
+  await page.waitForTimeout(300);
+  const tourDone = await opts.evaluate(async () => (await chrome.storage.local.get('settings')).settings.onboardingDone);
+  check('Recorrido guiado: se completa y no vuelve a aparecer', (await page.locator('#subme-now-host .sn-tour').count()) === 0 && tourDone === true);
+  check('Densidad compacta', await page.evaluate(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-root').classList.contains('compact')));
 
   // Navegación SPA a otra página
   await page.evaluate(() => { history.pushState({}, '', '/'); document.dispatchEvent(new Event('yt-navigate-finish')); });

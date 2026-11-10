@@ -23,6 +23,10 @@
     </div>
   </header>
   <div class="sn-body" data-ref="body">
+    <div class="sn-video" data-ref="videocard" hidden>
+      <img data-ref="vthumb" alt="" referrerpolicy="no-referrer">
+      <div class="sn-video-info"><b data-ref="vtitle"></b><span data-ref="vmeta"></span></div>
+    </div>
     <nav class="sn-tabs">
       <button class="sn-tab active" data-tab="transcript">${I('transcript')}Transcripción</button>
       <button class="sn-tab" data-tab="ai">${I('sparkles')}IA</button>
@@ -45,6 +49,7 @@
         <button class="sn-btn" data-act="ts" title="Mostrar u ocultar marcas de tiempo">${I('clock')}Tiempos</button>
         <button class="sn-btn" data-act="autoscroll" title="Seguir el video automáticamente">${I('follow')}Seguir</button>
         <button class="sn-btn" data-act="copy" title="Copiar la transcripción">${I('copy')}Copiar</button>
+        <button class="sn-btn" data-act="detachtr" title="Desacoplar la transcripción en una ventana">${I('detach')}Desacoplar</button>
         <div class="sn-dropdown">
           <button class="sn-btn" data-act="dlmenu">${I('download')}Descargar${I('chevronDown', 'sn-i-sm')}</button>
           <div class="sn-menu" data-ref="dlmenu" hidden>
@@ -80,6 +85,7 @@
             <button class="sn-icon-btn" data-act="regen" title="Regenerar">${I('refresh')}</button>
             <button class="sn-icon-btn" data-act="copyout" title="Copiar">${I('copy')}</button>
             <button class="sn-icon-btn" data-act="tts" title="Escuchar">${I('volume')}</button>
+            <button class="sn-icon-btn" data-act="detachout" title="Desacoplar en una ventana">${I('detach')}</button>
             <div class="sn-dropdown">
               <button class="sn-icon-btn" data-act="exportmenu" title="Exportar">${I('share')}</button>
               <div class="sn-menu" data-ref="exportmenu" hidden>
@@ -113,7 +119,7 @@
         <textarea class="sn-textarea" data-ref="chatinput" rows="2" placeholder="Pregunta algo sobre el video… (Enter para enviar)"></textarea>
         <button class="sn-btn primary" type="submit" data-ref="chatsend">Enviar</button>
       </form>
-      <div class="sn-chat-tools"><button class="sn-link" data-act="chatclear">Nueva conversación</button></div>
+      <div class="sn-chat-tools"><button class="sn-link" data-act="detachchat">${I('detach')}Desacoplar</button><button class="sn-link" data-act="chatclear">Nueva conversación</button></div>
     </section>
   </div>
 </div>
@@ -131,6 +137,8 @@
       this.root = this.shadow.querySelector('.sn-root');
 
       this.settings = SubmeSettings.DEFAULT_SETTINGS;
+      this.timeListeners = new Set();
+      this.chatSurfaces = new Set();
       this.videoId = null;
       this.reset();
 
@@ -152,6 +160,8 @@
       this.results = new Map();
       this.context = null;
       this.chat = [];
+      this.viewStates = {};
+      this.viewCtl = null;
       this.currentAction = null;
       this.segEls = [];
       this.currentIdx = -1;
@@ -185,12 +195,14 @@
 
     unmount() {
       this.abortAll();
+      SN.windows?.closeAll();
       this.host.remove();
     }
 
     async loadVideo(videoId) {
       if (this.videoId === videoId && (this.segments.length || this.loading)) return;
       this.reset();
+      SN.windows?.closeAll(); // las ventanas mostraban el video anterior
       this.videoId = videoId;
       this.attachVideo();
       this.renderAll();
@@ -206,6 +218,7 @@
         if (!this.video) this.video = await SN.transcript.getVideoInfo(this.videoId);
         if (token !== this.loadToken) return;
         this.refs.sub.textContent = '';
+        this.renderVideoCard();
         const r = await SN.transcript.loadTranscript(this.video, choice, {
           preferredLanguage: this.settings.transcriptLanguage,
           languages: this.languages,
@@ -256,6 +269,7 @@
       if (!this.videoEl) return;
       this.videoEl.currentTime = seconds;
       this.videoEl.play?.().catch(() => {});
+      this.highlightCurrent(true);
     }
 
     /* ---------- configuración y tema ---------- */
@@ -263,14 +277,17 @@
     applySettings(s, initial = false) {
       const prev = this.settings;
       this.settings = s;
+      this.root.classList.toggle('compact', s.density === 'compact');
       // Color de acento de toda la interfaz (íconos, pestañas, botones, resaltados).
       const accent = /^#[0-9a-f]{6}$/i.test(s.iconColor || '') ? s.iconColor : '';
       this.accent = accent;
       if (accent) { this.host.setAttribute('data-accent', ''); this.host.style.setProperty('--sn-user-accent', accent); }
       else { this.host.removeAttribute('data-accent'); this.host.style.removeProperty('--sn-user-accent'); }
+      SN.windows?.all().forEach((w) => w.setTheme(this.theme()));
       if (initial) {
         this.applyCollapsed();
         this.switchTab(s.defaultTab || 'transcript');
+        setTimeout(() => this.maybeStartTour(), 600);
       }
       const sig = (x) => `${x.provider}|${x.providers?.[x.provider]?.model || ''}|${x.responseLanguage}`;
       if (sig(prev) !== sig(s)) this.results.clear();
@@ -319,6 +336,7 @@
         const dark = document.documentElement.hasAttribute('dark')
           || (!document.querySelector('ytd-app') && matchMedia('(prefers-color-scheme: dark)').matches);
         this.host.setAttribute('data-theme', dark ? 'dark' : 'light');
+        SN.windows?.all().forEach((w) => w.setTheme(this.theme()));
       };
       apply();
       new MutationObserver(apply).observe(document.documentElement, { attributes: true, attributeFilter: ['dark'] });
@@ -505,6 +523,15 @@
         case 'unlock':
           try { chrome.runtime.sendMessage({ type: 'openUnlock' }); } catch { this.toast('Recarga la página: la extensión se actualizó'); }
           break;
+        case 'detachout':
+          this.detachResult();
+          break;
+        case 'detachtr':
+          this.detachTranscript();
+          break;
+        case 'detachchat':
+          this.detachChat();
+          break;
         case 'chatclear':
           this.abortAll();
           this.chat = [];
@@ -618,8 +645,11 @@
     }
 
     highlightCurrent(force = false) {
-      if (!this.videoEl || !this.segments.length) return;
+      if (!this.videoEl) return;
       const t = this.videoEl.currentTime;
+      this.viewCtl?.onTime?.(t);
+      this.timeListeners?.forEach((fn) => fn(t));
+      if (!this.segments.length) return;
       let lo = 0;
       let hi = this.segments.length - 1;
       let idx = -1;
@@ -790,8 +820,9 @@
       }
 
       const stopBtn = this.shadow.querySelector('[data-act="stop"]');
-      const progress = (msg) => { out.innerHTML = `<div class="sn-progress"><span class="sn-spinner"></span>${U.escapeHtml(msg)}</div>`; };
+      const progress = (msg) => { out.innerHTML = skeleton(msg); };
       progress('Pensando…');
+      this.viewCtl = null;
       stopBtn.hidden = false;
       const myToken = this.loadToken;
 
@@ -808,9 +839,14 @@
             requestAnimationFrame(() => {
               pending = false;
               if (finished || this.currentAction !== action) return;
-              out.innerHTML = action.view === 'mindmap'
-                ? `<div class="sn-progress"><span class="sn-spinner"></span>Construyendo el mapa mental… (${full.split('\n').filter((l) => l.trim()).length} ideas)</div>`
-                : MD.render(full) + '<div class="sn-progress"><span class="sn-spinner"></span></div>';
+              if (action.view === 'mindmap') {
+                out.innerHTML = skeleton(`Construyendo el mapa mental… (${full.split('\n').filter((l) => l.trim()).length} ideas)`);
+              } else if (action.view === 'structured') {
+                const n = SN.views.progressCount(action.id, full);
+                out.innerHTML = skeleton(`Preparando ${action.label.toLowerCase()}…${n ? ` (${n})` : ''}`);
+              } else {
+                out.innerHTML = MD.render(full) + '<div class="sn-progress"><span class="sn-spinner"></span></div>';
+              }
             });
           },
         );
@@ -834,8 +870,10 @@
     /* ---------- exportar y escuchar ---------- */
 
     currentDoc() {
-      const text = this.results.get(this.currentAction?.id) || this.lastOutput;
-      if (!text || !this.currentAction) return null;
+      const raw = this.results.get(this.currentAction?.id) || this.lastOutput;
+      if (!raw || !this.currentAction) return null;
+      // Las vistas gráficas se exportan como su equivalente en Markdown.
+      const text = this.currentAction.view === 'structured' ? SN.views.toMarkdown(this.currentAction.id, raw) : raw;
       return { video: this.video, title: this.currentAction.label, text };
     }
 
@@ -859,7 +897,12 @@
     async startReading() {
       const out = this.refs.output;
       let container = out;
-      if (this.currentAction?.view === 'mindmap' && out.querySelector('.mm-text')) {
+      if (this.currentAction?.view === 'structured') {
+        // Leer el equivalente en texto de la vista gráfica (sin tocar la vista interactiva).
+        out.querySelector('.sn-tts-src')?.remove();
+        out.insertAdjacentHTML('beforeend', `<div class="sn-tts-src" hidden>${MD.render(this.currentDoc()?.text || '')}</div>`);
+        container = out.querySelector('.sn-tts-src');
+      } else if (this.currentAction?.view === 'mindmap' && out.querySelector('.mm-text')) {
         out.querySelector('.mm-switch [data-view="text"]')?.click(); // leer la versión en texto del mapa
         container = out.querySelector('.mm-text');
       }
@@ -914,9 +957,21 @@
       const out = this.refs.output;
       this.lastOutput = text;
       const note = notice ? `<div class="sn-foot-note">${U.escapeHtml(notice)}</div>` : '';
+      this.viewCtl = null;
+      if (action.view === 'structured') {
+        this.viewStates = this.viewStates || {};
+        const state = (this.viewStates[action.id] = this.viewStates[action.id] || {});
+        const r = SN.views.render(out, action.id, text, { video: this.video, state, toast: (m) => this.toast(m), accent: this.accent || '#6d4aff' });
+        if (r.ok) {
+          this.viewCtl = r.controller;
+          if (note) out.insertAdjacentHTML('beforeend', note);
+          this.highlightCurrent(true);
+          return;
+        }
+      }
       const tree = action.view === 'mindmap' ? SN.mindmap.parse(text, this.video?.title) : null;
       if (tree && this.accent) tree.color = this.accent;
-      if (!tree) { out.innerHTML = MD.render(text) + note; return; }
+      if (!tree) { out.innerHTML = `<div class="vw">${MD.render(text)}</div>${note}`; return; }
       out.innerHTML = `<div class="mm-switch"><button data-view="diagram" class="on">Diagrama</button><button data-view="text">Texto</button></div>
         <div class="mm-host"></div><div class="md mm-text" hidden>${MD.render(text)}</div>${note}`;
       const host = out.querySelector('.mm-host');
@@ -966,12 +1021,224 @@
       });
     }
 
+    renderVideoCard() {
+      const v = this.video;
+      const card = this.refs.videocard;
+      if (!v?.videoId) { card.hidden = true; return; }
+      const img = this.refs.vthumb;
+      img.onerror = () => { img.hidden = true; };
+      img.hidden = false;
+      img.src = `https://i.ytimg.com/vi/${encodeURIComponent(v.videoId)}/mqdefault.jpg`;
+      this.refs.vtitle.textContent = v.title || '';
+      this.refs.vmeta.textContent = [v.author, v.lengthSeconds ? U.formatTime(v.lengthSeconds) : ''].filter(Boolean).join(' · ');
+      card.hidden = false;
+    }
+
+    /* ---------- recorrido guiado (primera vez) ---------- */
+
+    maybeStartTour() {
+      if (this.settings.onboardingDone || this.tourShown || this.root.classList.contains('collapsed')) return;
+      this.tourShown = true;
+      const steps = [
+        { sel: '.sn-tabs', title: 'Todo el video en tres pestañas', text: 'Transcripción completa, acciones de IA y un chat para hacerle preguntas al video.', tab: 'transcript' },
+        { sel: '[data-ref="actions"]', title: 'Un clic, un resultado', text: 'Resúmenes, mapas mentales, quizzes, flashcards, capítulos y más. Todo con marcas de tiempo clicables.', tab: 'ai' },
+        { sel: '[data-ref="modelbar"]', title: 'Tu IA, a tu manera', text: 'Elige proveedor, modelo e idioma aquí mismo. Cada resultado se puede escuchar, exportar o desacoplar en una ventana.', tab: 'ai' },
+      ];
+      const wrap = this.shadow.querySelector('.sn-wrap');
+      const layer = document.createElement('div');
+      layer.className = 'sn-tour';
+      wrap.appendChild(layer);
+      let i = 0;
+      const finish = () => { layer.remove(); this.shadow.querySelectorAll('.sn-tour-target').forEach((e) => e.classList.remove('sn-tour-target')); this.updateSettings({ onboardingDone: true }); this.switchTab(this.settings.defaultTab || 'transcript'); };
+      const show = () => {
+        const st = steps[i];
+        this.switchTab(st.tab);
+        this.shadow.querySelectorAll('.sn-tour-target').forEach((e) => e.classList.remove('sn-tour-target'));
+        const target = this.shadow.querySelector(st.sel);
+        target?.classList.add('sn-tour-target');
+        const wr = wrap.getBoundingClientRect();
+        const tr = target ? target.getBoundingClientRect() : wr;
+        layer.innerHTML = `<div class="sn-tour-card" role="dialog" style="top:${Math.round(tr.bottom - wr.top + 10)}px">
+            <div class="sn-tour-step">${i + 1} de ${steps.length}</div>
+            <b>${st.title}</b><p>${st.text}</p>
+            <div class="sn-tour-actions"><button class="sn-link" data-tour="skip">Saltar</button><button class="sn-btn primary" data-tour="next">${i + 1 < steps.length ? 'Siguiente' : 'Empezar'}</button></div>
+          </div>`;
+      };
+      layer.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-tour]');
+        if (!b) return;
+        e.stopPropagation();
+        if (b.dataset.tour === 'skip' || i + 1 >= steps.length) finish();
+        else { i++; show(); }
+      });
+      show();
+    }
+
+    /* ---------- ventanas desacopladas ---------- */
+
+    theme() {
+      return { dark: this.host.getAttribute('data-theme') === 'dark', accent: this.accent || '' };
+    }
+
+    /** Posición guardada o, la primera vez, a la izquierda del panel para no taparlo. */
+    winGeometry(kind) {
+      const saved = this.settings.windows?.[kind];
+      if (saved) return saved;
+      const size = { mindmap: [760, 540], transcript: [420, 560], chat: [420, 600] }[kind] || [460, 600];
+      const [w, h] = size;
+      const r = this.host.getBoundingClientRect();
+      const n = SN.windows?.all().length || 0;
+      const x = r.left - w - 16 > 8 ? r.left - w - 16 - n * 24 : Math.max(8, innerWidth - w - 24);
+      return { x: Math.max(8, x), y: Math.max(64, Math.min(r.top, innerHeight - h - 16)) + n * 24, w, h };
+    }
+
+    saveWinGeometry(kind, g) {
+      const windows = { ...(this.settings.windows || {}), [kind]: g };
+      this.settings.windows = windows;
+      this.updateSettings({ windows });
+    }
+
+    /** Clics en marcas de tiempo y "copiar código" dentro de una ventana. */
+    wireSurface(el, toast) {
+      el.addEventListener('click', (e) => {
+        const ts = e.target.closest('a.sn-ts');
+        if (ts) { e.preventDefault(); this.seek(Number(ts.dataset.t)); return; }
+        const cc = e.target.closest('.sn-copy-code');
+        if (cc) U.copyText(cc.parentElement.querySelector('code').textContent).then(() => toast?.('Copiado'));
+      });
+    }
+
+    /** Dibuja un resultado en cualquier contenedor. Devuelve { cleanup, onResize }. */
+    renderSurface(container, action, text, { toast, fill = false } = {}) {
+      if (action.view === 'structured') {
+        this.viewStates = this.viewStates || {};
+        const state = (this.viewStates[action.id] = this.viewStates[action.id] || {});
+        const r = SN.views.render(container, action.id, text, { video: this.video, state, toast, accent: this.accent || '#6d4aff' });
+        if (r.ok) {
+          const fn = r.controller?.onTime;
+          if (fn) { this.timeListeners.add(fn); fn(this.videoEl?.currentTime || 0); }
+          return { cleanup: () => fn && this.timeListeners.delete(fn) };
+        }
+      }
+      if (action.view === 'mindmap') {
+        const tree = SN.mindmap.parse(text, this.video?.title);
+        if (tree) {
+          if (this.accent) tree.color = this.accent;
+          const mm = SN.mindmap.mount(container, tree, { fill, dark: this.theme().dark, title: this.video?.title, onSeek: (t) => this.seek(t), onError: (m) => toast?.(m) });
+          return { cleanup: () => {}, onResize: () => mm.redraw() };
+        }
+      }
+      container.innerHTML = `<div class="vw md">${MD.render(text)}</div>`;
+      return { cleanup: () => {} };
+    }
+
+    detachResult() {
+      const action = this.currentAction;
+      const text = action && (this.results.get(action.id) || this.lastOutput);
+      if (!action || !text) { this.toast('Todavía no hay un resultado para desacoplar'); return; }
+      let surface = null;
+      const w = SN.windows.open({
+        key: `result:${action.id}`,
+        title: `${action.label} · ${this.video?.title || ''}`,
+        icon: action.icon,
+        theme: this.theme(),
+        geometry: this.winGeometry(action.view === 'mindmap' ? 'mindmap' : 'result'),
+        onGeometry: (g) => this.saveWinGeometry(action.view === 'mindmap' ? 'mindmap' : 'result', g),
+        render: (body, win) => {
+          surface?.cleanup();
+          surface = this.renderSurface(body, action, text, { toast: win.toast, fill: true });
+          win.onResize = surface.onResize || null;
+        },
+        onClose: () => surface?.cleanup(),
+        onPopout: () => this.popout('result', { action: { id: action.id, label: action.label, icon: action.icon, view: action.view }, text }),
+      });
+      if (!w.wired) { this.wireSurface(w.body, w.toast); w.wired = true; }
+    }
+
+    detachTranscript() {
+      if (!this.segments.length) { this.toast('No hay transcripción para desacoplar'); return; }
+      let ctl = null;
+      const fn = (t) => ctl?.onTime(t);
+      SN.windows.open({
+        key: 'transcript',
+        title: `Transcripción · ${this.video?.title || ''}`,
+        icon: 'transcript',
+        theme: this.theme(),
+        geometry: this.winGeometry('transcript'),
+        onGeometry: (g) => this.saveWinGeometry('transcript', g),
+        render: (body) => {
+          ctl = SN.surfaces.transcript(body, { segments: this.segments, seek: (t) => this.seek(t), autoScroll: this.settings.autoScroll });
+          this.timeListeners.add(fn);
+          fn(this.videoEl?.currentTime || 0);
+        },
+        onClose: () => this.timeListeners.delete(fn),
+        onPopout: () => this.popout('transcript', { segments: this.segments }),
+      });
+    }
+
+    detachChat() {
+      let ctl = null;
+      const fn = () => ctl?.render();
+      const w = SN.windows.open({
+        key: 'chat',
+        title: `Chat · ${this.video?.title || ''}`,
+        icon: 'chat',
+        theme: this.theme(),
+        geometry: this.winGeometry('chat'),
+        onGeometry: (g) => this.saveWinGeometry('chat', g),
+        render: (body) => {
+          ctl = SN.surfaces.chat(body, { getChat: () => this.chat, send: (t) => this.sendChat(t, { keepTab: true }), suggestions: P.CHAT_SUGGESTIONS });
+          this.chatSurfaces.add(fn);
+          setTimeout(() => ctl.focus(), 0);
+        },
+        onClose: () => this.chatSurfaces.delete(fn),
+        onPopout: () => this.popout('chat', {}),
+      });
+      if (!w.wired) { this.wireSurface(w.body, w.toast); w.wired = true; }
+    }
+
+    /** Abre el contenido en una ventana aparte del navegador (se puede llevar a otro monitor). */
+    async popout(kind, extra) {
+      const v = this.video || {};
+      const payload = {
+        kind,
+        video: { videoId: v.videoId, title: v.title, author: v.author, lengthSeconds: v.lengthSeconds, url: v.url },
+        theme: this.theme(),
+        suggestions: P.CHAT_SUGGESTIONS,
+        autoScroll: this.settings.autoScroll,
+        ...extra,
+      };
+      const size = kind === 'transcript' || kind === 'chat' ? { width: 480, height: 760 } : extra?.action?.view === 'mindmap' ? { width: 1100, height: 760 } : { width: 620, height: 820 };
+      try {
+        await chrome.runtime.sendMessage({ type: 'openPopout', payload, ...size });
+      } catch {
+        this.toast('Recarga la página: la extensión se actualizó');
+      }
+    }
+
+    /** Conexión con una ventana aparte: tiempo del video, saltos y chat. */
+    attachPopoutPort(port) {
+      const send = (m) => { try { port.postMessage(m); } catch { /* ventana cerrada */ } };
+      let last = 0;
+      const timeFn = (t) => { const now = Date.now(); if (now - last < 250) return; last = now; send({ type: 'time', t }); };
+      const chatFn = () => send({ type: 'chat', chat: this.chat.map((m) => ({ role: m.role, content: m.content, error: typeof m.error === 'string' ? m.error : '' })) });
+      this.timeListeners.add(timeFn);
+      this.chatSurfaces.add(chatFn);
+      chatFn();
+      timeFn(this.videoEl?.currentTime || 0);
+      port.onMessage.addListener((m) => {
+        if (m?.type === 'seek') this.seek(Number(m.t));
+        if (m?.type === 'chat' && m.text) this.sendChat(String(m.text), { keepTab: true });
+      });
+      port.onDisconnect.addListener(() => { this.timeListeners.delete(timeFn); this.chatSurfaces.delete(chatFn); });
+    }
+
     /* ---------- chat ---------- */
 
     renderChat() {
       const log = this.refs.chatlog;
       if (!this.chat.length) {
-        log.innerHTML = `<div class="sn-chat-empty">Hazle preguntas al video. La IA responde usando la transcripción y te señala los momentos exactos.</div>`;
+        log.innerHTML = `<div class="sn-empty"><span class="sn-empty-icon">${I('chat')}</span><b>Conversa con el video</b><span>La IA responde usando la transcripción y te indica el minuto exacto de cada respuesta.</span></div>`;
         this.refs.suggestions.innerHTML = P.CHAT_SUGGESTIONS.map((s) => `<button class="sn-chip" type="button">${U.escapeHtml(s)}</button>`).join('');
       } else {
         log.innerHTML = this.chat.map((m) => (m.role === 'user'
@@ -980,12 +1247,13 @@
         this.refs.suggestions.innerHTML = '';
       }
       log.scrollTop = log.scrollHeight;
+      this.chatSurfaces?.forEach((fn) => fn());
     }
 
-    async sendChat(text) {
+    async sendChat(text, { keepTab = false } = {}) {
       text = String(text || '').trim();
       if (!text || this.chatBusy) return;
-      this.switchTab('chat');
+      if (!keepTab) this.switchTab('chat');
       if (!this.segments.length) { this.toast('No hay transcripción disponible'); return; }
       if (!this.hasKey()) { this.toast('Configura una API key primero'); handleSettings(); return; }
 
@@ -1024,6 +1292,15 @@
         if (myToken === this.loadToken) this.renderChat();
       }
     }
+  }
+
+  /** Silueta animada de carga. */
+  function skeleton(msg) {
+    return `<div class="sn-skeleton" aria-busy="true">
+      <div class="sk sk-title"></div><div class="sk"></div><div class="sk"></div><div class="sk sk-short"></div>
+      <div class="sk sk-block"></div><div class="sk"></div><div class="sk sk-short"></div>
+      <div class="sn-skeleton-msg"><span class="sn-spinner"></span>${U.escapeHtml(msg)}</div>
+    </div>`;
   }
 
   function handleSettings() {

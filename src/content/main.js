@@ -35,6 +35,11 @@
   }
 
   // Atajos de teclado enviados por el service worker.
+  // Ventanas aparte (popout) que se conectan a esta pestaña.
+  chrome.runtime.onConnect.addListener((port) => {
+    if (port.name === 'subme-popout') panel?.attachPopoutPort(port);
+  });
+
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg?.type === 'subme-command') panel?.handleCommand(msg.command);
   });

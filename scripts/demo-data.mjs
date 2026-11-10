@@ -79,7 +79,85 @@ Con una rutina de unos 60 minutos diarios repartidos en el día, el progreso en 
 El autor insiste en que lo importante es hacerlo **todos los días** [00:21].`,
 };
 
-export const pickResponse = (last) => (last.includes('mapa mental') ? RESPONSES.mindmap : last.startsWith('Resume el video') || last.includes('puntos clave') ? RESPONSES.summary
+/** Respuestas estructuradas (JSON) para las vistas gráficas. */
+export const STRUCTURED = {
+  '"tldr"': {
+    tldr: 'Aprender un idioma en 6 meses es posible combinando exposición diaria, práctica oral desde el primer día y repetición espaciada del vocabulario.',
+    sections: [
+      { title: 'La constancia gana a la intensidad', text: 'El autor explica que 30 minutos diarios rinden más que largas sesiones esporádicas. El hábito es lo que sostiene el progreso durante meses.' },
+      { title: 'Los tres pilares del método', text: 'Exposición diaria al idioma, hablar desde el primer día aunque haya errores y repetición espaciada para fijar el vocabulario más frecuente.' },
+      { title: 'Una rutina simple', text: 'Flashcards por la mañana, un podcast en el viaje al trabajo y media hora de conversación por la noche.' },
+    ],
+    keyIdeas: [
+      { text: 'Exposición diaria con podcasts y series en versión original', t: '01:12' },
+      { text: 'Hablar desde el primer día, aunque haya errores', t: '02:30' },
+      { text: 'Flashcards con repetición espaciada: 20 palabras por día', t: '04:05' },
+      { text: 'Las 1.000 palabras más frecuentes cubren ~80% de las conversaciones', t: '05:40' },
+      { text: 'Grabarse cada mes para medir el progreso', t: '10:00' },
+    ],
+    conclusion: 'Con una rutina de unos 60 minutos diarios repartidos en el día, el progreso en seis meses es enorme.',
+  },
+  '"points"': { points: [
+    { title: 'Constancia antes que intensidad', detail: '30 minutos diarios rinden más que cinco horas un domingo.', t: '00:14' },
+    { title: 'Exposición diaria', detail: 'Podcasts y series en versión original para entrenar el oído.', t: '01:12' },
+    { title: 'Hablar desde el día uno', detail: 'El miedo a equivocarse es el mayor freno; busca intercambio o un profesor.', t: '02:30' },
+    { title: 'Repetición espaciada', detail: '20 palabras nuevas por día suman más de 3.600 en seis meses.', t: '04:05' },
+    { title: 'Vocabulario frecuente', detail: 'Las primeras 1.000 palabras cubren cerca del 80% de lo cotidiano.', t: '05:40' },
+    { title: 'Gramática después', detail: 'Se entiende mejor tras haber escuchado mucho.', t: '07:00' },
+  ] },
+  '"chapters"': { chapters: [
+    { t: '00:00', title: 'Introducción', summary: 'El método para aprender idiomas en 6 meses.' },
+    { t: '01:12', title: 'Exposición diaria', summary: 'Podcasts y series para entrenar el oído.' },
+    { t: '02:30', title: 'Hablar desde el día uno', summary: 'Perder el miedo a equivocarse.' },
+    { t: '04:05', title: 'Repetición espaciada', summary: 'Flashcards y vocabulario frecuente.' },
+    { t: '07:00', title: 'El error de la gramática', summary: 'Por qué no empezar por los libros.' },
+    { t: '08:30', title: 'Rutina diaria', summary: 'Cómo repartir 60 minutos al día.' },
+    { t: '10:00', title: 'Medir el progreso', summary: 'Grabarse cada mes.' },
+  ] },
+  '"questions"': { questions: [
+    { q: 'Según el video, ¿qué es más efectivo para aprender un idioma?', options: ['Estudiar cinco horas los domingos', 'Estudiar 30 minutos todos los días', 'Estudiar solo gramática', 'Esperar a sentirse preparado para hablar'], answer: 1, explanation: 'El autor insiste en que la constancia gana a la intensidad.', t: '00:14' },
+    { q: '¿Cuántas palabras nuevas por día propone aprender con flashcards?', options: ['5', '10', '20', '50'], answer: 2, explanation: 'Veinte palabras diarias suman más de 3.600 en seis meses.', t: '04:05' },
+    { q: '¿Qué porcentaje de las conversaciones cubren las 1.000 palabras más frecuentes?', options: ['Cerca del 30%', 'Cerca del 50%', 'Cerca del 80%', 'El 100%'], answer: 2, explanation: 'Por eso conviene priorizar el vocabulario frecuente.', t: '05:40' },
+  ] },
+  '"cards"': { cards: [
+    { front: '¿Qué gana a la intensidad al aprender un idioma?', back: 'La constancia: estudiar un poco todos los días.', t: '00:14' },
+    { front: '¿Cuáles son los tres pilares del método?', back: 'Exposición diaria, hablar desde el día uno y repetición espaciada.', t: '01:12' },
+    { front: '¿Cuántas palabras por día con flashcards?', back: 'Veinte: más de 3.600 en seis meses.', t: '04:05' },
+    { front: '¿Cómo medir el progreso?', back: 'Grabándose al hablar una vez por mes.', t: '10:00' },
+  ] },
+  '"quotes"': { quotes: [
+    { text: 'La constancia gana a la intensidad.', t: '00:14', why: 'Resume la idea central del método.' },
+    { text: 'El miedo a equivocarse es el mayor freno para la mayoría de las personas.', t: '02:45', why: 'Explica por qué conviene hablar desde el primer día.' },
+    { text: 'Escucharse después de unas semanas es increíblemente motivador.', t: '10:06', why: 'Muestra el valor de medir el progreso.' },
+  ] },
+  '"steps"': { kind: 'tutorial', requirements: ['App de flashcards con repetición espaciada', 'Podcasts o series en el idioma', 'Un compañero de intercambio o profesor'], steps: [
+    { title: 'Repasa 20 palabras con flashcards', detail: 'Quince minutos por la mañana, priorizando el vocabulario frecuente.', t: '04:05' },
+    { title: 'Escucha un podcast en el viaje', detail: 'Exposición diaria para acostumbrar el oído.', t: '01:12' },
+    { title: 'Conversa 30 minutos por la noche', detail: 'Con un compañero de intercambio o un profesor online.', t: '02:30' },
+    { title: 'Grábate una vez por mes', detail: 'Compara las grabaciones para ver tu avance.', t: '10:00' },
+  ], warnings: ['No empieces solo con gramática y libros', 'No esperes a "estar listo" para hablar'] },
+  '"claims"': { claims: [
+    { claim: 'Las 1.000 palabras más frecuentes cubren cerca del 80% de las conversaciones cotidianas', t: '05:40', verdict: 'correcto', explanation: 'Coincide con estudios de frecuencia léxica en varios idiomas.' },
+    { claim: 'Cualquier persona puede aprender un idioma en seis meses', t: '00:09', verdict: 'dudoso', explanation: 'Depende del idioma, la dedicación y el nivel buscado.' },
+    { claim: 'Estudiar gramática primero es un error', t: '07:00', verdict: 'dudoso', explanation: 'Funciona mejor como complemento; no hay consenso absoluto.' },
+  ], opinions: ['La gramática se aprende mejor después de escuchar mucho'], missing: ['No cita fuentes para sus cifras', 'No distingue entre idiomas cercanos y lejanos'] },
+  '"posts"': { posts: [
+    'Aprender un idioma en 6 meses no es magia: es un método. Te lo resumo en un hilo 👇',
+    'La regla de oro: la constancia gana a la intensidad. 30 minutos al día rinden más que 5 horas un domingo.',
+    'Pilar 1: exposición diaria. Podcasts en el viaje y series en versión original.',
+    'Pilar 2: hablar desde el primer día. El miedo a equivocarse es el mayor freno.',
+    'Pilar 3: repetición espaciada. 20 palabras por día = más de 3.600 en seis meses.',
+    'Mide tu progreso: grábate una vez por mes. Escucharte después de unas semanas motiva muchísimo.',
+  ] },
+  '"hashtags"': { text: 'Aprendí algo que cambia cómo veo el estudio de idiomas: la constancia gana a la intensidad.\n\nTres ideas que me llevo:\n• Exposición diaria (podcasts y series)\n• Hablar desde el primer día, aunque haya errores\n• Repetición espaciada: 20 palabras por día\n\nLo más interesante: las 1.000 palabras más frecuentes cubren cerca del 80% de lo que escuchamos.\n\n¿Qué idioma estás aprendiendo y cuál es tu rutina?', hashtags: ['Idiomas', 'Aprendizaje', 'Productividad'] },
+};
+
+export const pickResponse = (last) => {
+  const key = Object.keys(STRUCTURED).find((k) => last.includes(k));
+  if (key) return JSON.stringify(STRUCTURED[key]);
+  return pickResponseText(last);
+};
+const pickResponseText = (last) => (last.includes('mapa mental') ? RESPONSES.mindmap : last.startsWith('Resume el video') || last.includes('puntos clave') ? RESPONSES.summary
   : last.includes('capítulos') ? RESPONSES.chapters : RESPONSES.chat);
 export const playerResponse = {
   videoDetails: { videoId: VIDEO_ID, title: TITLE, author: 'Aprende+', lengthSeconds: '754' },

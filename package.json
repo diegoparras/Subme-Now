@@ -1,6 +1,6 @@
 {
   "name": "subme-now",
-  "version": "1.3.0",
+  "version": "1.5.0",
   "private": true,
   "description": "Extensión de Chrome para extraer transcripciones de YouTube y procesarlas con IA.",
   "scripts": {

@@ -117,6 +117,7 @@ await context.route('https://openrouter.ai/**', (route) => {
   const last = JSON.parse(route.request().postData()).messages.at(-1).content;
   return route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body: sse(pickResponse(last)) });
 });
+await context.route('https://i.ytimg.com/**', (route) => route.fulfill({ contentType: 'image/jpeg', body: fs.readFileSync(path.join(ROOT, 'scripts/assets/demo-thumb.jpg')) }));
 await context.route('https://www.youtube.com/**', (route) => {
   const url = route.request().url();
   if (url.includes('/youtubei/v1/get_transcript')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify(transcriptJson) });
@@ -147,13 +148,13 @@ try {
 
   // Si Playwright puede interceptar el service worker se muestra OpenRouter; si no, la API local.
   await opts.evaluate(async () => {
-    await chrome.storage.local.set({ settings: { provider: 'openrouter', providers: { openrouter: { apiKey: 'demo', model: 'anthropic/claude-opus-5.5' } }, responseLanguage: 'es' } });
+    await chrome.storage.local.set({ settings: { onboardingDone: true, provider: 'openrouter', providers: { openrouter: { apiKey: 'demo', model: 'anthropic/claude-opus-5.5' } }, responseLanguage: 'es' } });
   });
   const probe = await opts.evaluate(() => chrome.runtime.sendMessage({ type: 'testProvider', providerId: 'openrouter' }));
   if (!probe.ok || !openrouterRouted) {
     console.log('Sin intercepción del service worker; usando API local.');
     await opts.evaluate(async (api) => {
-      await chrome.storage.local.set({ settings: { provider: 'custom', providers: { custom: { baseUrl: api, model: 'claude-opus-5-5', apiKey: '' } }, responseLanguage: 'es' } });
+      await chrome.storage.local.set({ settings: { onboardingDone: true, provider: 'custom', providers: { custom: { baseUrl: api, model: 'claude-opus-5-5', apiKey: '' } }, responseLanguage: 'es' } });
     }, API);
   }
 

@@ -33,6 +33,14 @@ Con un clic puedes obtener un resumen, los puntos clave, capítulos con marcas d
 
 Las marcas de tiempo de cada respuesta son clicables y te llevan directo a ese momento del video. También puedes crear tus propias acciones o escribir cualquier pedido.
 
+RESULTADOS GRÁFICOS E INTERACTIVOS
+• Flashcards que se dan vuelta, quiz con corrección al instante y puntaje, capítulos sobre una línea de tiempo y mapas mentales.
+• Resúmenes, puntos clave, citas y pasos presentados en tarjetas claras, listos para estudiar o compartir.
+
+VENTANAS DESACOPLABLES
+• Desacopla cualquier resultado, la transcripción o el chat en una ventana flotante que puedes mover y redimensionar.
+• Ábrela en una ventana aparte para llevarla a otro monitor mientras ves el video.
+
 ESCUCHAR Y EXPORTAR
 • Escucha cualquier resultado en voz alta, con pausa, velocidad y elección de voz.
 • Copia con formato para pegar en tus documentos y apps de notas, envía notas a tu bóveda de notas en Markdown, o descarga en Markdown, documento de texto (.docx) o PDF.
@@ -82,6 +90,14 @@ AI ACTIONS
 With one click you get a summary, key points, timestamped chapters, study notes, an interactive mind map, a quiz, flashcards, notable quotes, tutorial steps, claims worth fact-checking, a simple explanation, social media or blog drafts, a clean transcript or a full translation.
 
 Timestamps in every answer are clickable and take you straight to that moment. You can also create your own actions or type any request.
+
+VISUAL, INTERACTIVE RESULTS
+• Flip flashcards, quizzes with instant feedback and a final score, chapters on a timeline and mind maps.
+• Summaries, key points, quotes and steps shown as clean cards, ready to study or share.
+
+DETACHABLE WINDOWS
+• Detach any result, the transcript or the chat into a floating window you can move and resize.
+• Open it in a separate window to put it on another monitor while you watch.
 
 LISTEN AND EXPORT
 • Listen to any result read aloud, with pause, speed and voice selection.

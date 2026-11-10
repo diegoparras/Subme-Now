@@ -18,6 +18,16 @@ Sin servidores intermedios: la transcripción sale directo de YouTube y las cons
 - Mostrar u ocultar las marcas de tiempo.
 - **Copiar** y **descargar** como TXT (con o sin tiempos), **SRT**, **VTT**, **Markdown** o **JSON**.
 
+### 🎨 Resultados gráficos e interactivos (v1.5)
+- **Flashcards** que se dan vuelta, con "La sé / Repasar", progreso, mezclar y exportación a Anki.
+- **Quiz** interactivo: respuesta correcta en verde, incorrecta en rojo, explicación, enlace al minuto y puntaje final.
+- **Capítulos** con línea de tiempo de colores que sigue la reproducción.
+- **Resumen** con TL;DR destacado y secciones plegables; **puntos clave** en tarjetas; **citas** en tarjetas (también como imagen para redes); **pasos** como lista de tareas; **afirmaciones** con veredictos de color; **hilo** y **post de LinkedIn** con vista previa y contador de caracteres.
+
+### 🪟 Ventanas desacoplables (v1.5)
+- Cualquier resultado, la transcripción o el chat se pueden **desacoplar** en una ventana flotante: se arrastra, se redimensiona desde los bordes, se minimiza y recuerda su posición.
+- Desde la ventana, **"Abrir en una ventana aparte"** la convierte en una ventana del navegador que puedes llevar a **otro monitor**; sigue controlando el video.
+
 ### ✨ Acciones de IA (con tu API key)
 | Acción | Qué hace |
 |---|---|
@@ -124,10 +134,14 @@ src/
     transcript.js         # extracción de subtítulos
     ai.js                 # cliente de streaming y condensado de videos largos
     panel.js              # interfaz del panel
+    views.js              # vistas gráficas (flashcards, quiz, capítulos…)
+    windows.js            # ventanas flotantes desacoplables
+    surfaces.js           # transcripción y chat reutilizables en ventanas
     styles.js             # estilos (Shadow DOM)
     main.js               # detección de navegación SPA de YouTube
   options/                # página de configuración
   unlock/                 # ventana para desbloquear las claves
+  popout/                 # ventana aparte del navegador (otro monitor)
 _locales/                 # nombre y descripción en español e inglés
 tests/e2e.mjs             # prueba end-to-end con Playwright (YouTube y API simulados)
 scripts/build.sh          # genera el .zip para la Chrome Web Store

@@ -27,6 +27,9 @@
     ttsRate: 1,
     obsidianVault: '',
     obsidianFolder: 'Subme Now',
+    windows: {},
+    onboardingDone: false,
+    density: 'comfortable',
   };
 
   function merge(base, extra) {

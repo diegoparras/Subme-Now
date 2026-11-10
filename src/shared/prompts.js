@@ -107,6 +107,71 @@ Lista las afirmaciones factuales importantes (cifras, estudios, hechos) con su m
     },
   ];
 
+  /* ---------- Acciones con vista gráfica: la IA devuelve JSON y se dibuja con componentes ---------- */
+  const STRUCTURED = {
+    summary: {
+      guide: 'Resume el video de forma clara y completa.',
+      schema: '{"tldr": "1 o 2 frases con la idea central", "sections": [{"title": "Título de la sección", "text": "Párrafo de 2 a 5 frases"}], "keyIdeas": [{"text": "Idea principal concreta", "t": "mm:ss"}], "conclusion": "Conclusión o mensaje final"}',
+      rules: 'Entre 2 y 4 secciones y entre 4 y 7 ideas principales.',
+    },
+    keypoints: {
+      guide: 'Extrae los puntos clave del video en orden cronológico.',
+      schema: '{"points": [{"title": "Título corto (3 a 7 palabras)", "detail": "Explicación concreta con datos, cifras o ejemplos", "t": "mm:ss"}]}',
+      rules: 'Entre 7 y 12 puntos.',
+    },
+    chapters: {
+      guide: 'Divide el video en capítulos lógicos.',
+      schema: '{"chapters": [{"t": "mm:ss", "title": "Título breve", "summary": "Una frase que describa el contenido"}]}',
+      rules: 'Entre 4 y 12 capítulos según la duración; el primero empieza en "00:00"; ordenados por tiempo.',
+    },
+    quiz: {
+      guide: 'Crea un quiz de opción múltiple para autoevaluar la comprensión del video, de dificultad progresiva.',
+      schema: '{"questions": [{"q": "Pregunta", "options": ["Opción A", "Opción B", "Opción C", "Opción D"], "answer": 0, "explanation": "Por qué es la correcta", "t": "mm:ss"}]}',
+      rules: '10 preguntas; exactamente 4 opciones cada una; "answer" es el índice (0 a 3) de la opción correcta; varía la posición de la respuesta correcta.',
+    },
+    flashcards: {
+      guide: 'Crea tarjetas de estudio (flashcards) para memorizar el contenido del video.',
+      schema: '{"cards": [{"front": "Pregunta o concepto", "back": "Respuesta breve y precisa", "t": "mm:ss"}]}',
+      rules: 'Entre 10 y 20 tarjetas; el frente en forma de pregunta corta; el dorso con una respuesta de máximo 2 frases.',
+    },
+    quotes: {
+      guide: 'Extrae las frases más memorables, impactantes o citables del video, de forma textual (corrigiendo solo errores evidentes de la transcripción automática).',
+      schema: '{"quotes": [{"text": "Cita textual", "t": "mm:ss", "why": "Por qué es relevante (1 frase)"}]}',
+      rules: 'Entre 5 y 10 citas.',
+    },
+    steps: {
+      guide: 'Si el video es un tutorial o enseña un proceso, conviértelo en una guía paso a paso; si no, extrae las recomendaciones y acciones concretas que el espectador puede aplicar.',
+      schema: '{"kind": "tutorial o acciones", "requirements": ["Requisito, herramienta o material"], "steps": [{"title": "Paso o acción concreta", "detail": "Cómo hacerlo", "t": "mm:ss"}], "warnings": ["Advertencia o error común"]}',
+      rules: '"requirements" y "warnings" pueden ser listas vacías.',
+    },
+    factcheck: {
+      guide: 'Analiza críticamente el video: identifica las afirmaciones factuales importantes y evalúalas según tu conocimiento (es una evaluación preliminar).',
+      schema: '{"claims": [{"claim": "Afirmación tal como se presenta", "t": "mm:ss", "verdict": "correcto | dudoso | incorrecto | no verificable", "explanation": "Por qué"}], "opinions": ["Opinión presentada como hecho"], "missing": ["Sesgo o información faltante"]}',
+      rules: 'Entre 4 y 10 afirmaciones; "verdict" debe ser exactamente uno de los cuatro valores.',
+    },
+    thread: {
+      guide: 'Escribe un hilo para X/Twitter que resuma el video de forma atractiva: la primera publicación con un gancho fuerte y la última con una conclusión.',
+      schema: '{"posts": ["Texto de la publicación 1", "Texto de la publicación 2"]}',
+      rules: 'Entre 6 y 10 publicaciones de máximo 270 caracteres cada una, sin numerarlas (se numeran solas) y sin hashtags excesivos.',
+    },
+    linkedin: {
+      guide: 'Escribe una publicación para LinkedIn basada en el video: gancho inicial, 3 a 5 aprendizajes, una reflexión personal y una pregunta final para generar conversación.',
+      schema: '{"text": "Texto completo de la publicación, con saltos de línea", "hashtags": ["Hashtag1", "Hashtag2", "Hashtag3"]}',
+      rules: 'Entre 150 y 250 palabras; 3 hashtags sin el símbolo #.',
+    },
+  };
+
+  const jsonPrompt = ({ guide, schema, rules }) => `${guide}
+
+Responde ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después y sin bloque de código, con esta forma exacta:
+${schema}
+
+Reglas: ${rules} Escribe todos los textos en el idioma de respuesta indicado. "t" es la marca de tiempo ("mm:ss" o "h:mm:ss") tomada de la transcripción donde se trata ese contenido, o null si no corresponde. No inventes contenido que no esté en el video.`;
+
+  for (const a of ACTIONS) {
+    if (STRUCTURED[a.id]) { a.view = 'structured'; a.prompt = jsonPrompt(STRUCTURED[a.id]); }
+  }
+
   const CHAT_SUGGESTIONS = [
     '¿De qué trata este video?',
     '¿Cuáles son las conclusiones principales?',

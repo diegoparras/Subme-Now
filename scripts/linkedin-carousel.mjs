@@ -66,6 +66,7 @@ await context.route('https://openrouter.ai/**', (route) => {
   const last = JSON.parse(route.request().postData() || '{}').messages?.at(-1)?.content || '';
   return route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body: sse(last.includes('OK') ? 'OK' : pickResponse(last)) });
 });
+await context.route('https://i.ytimg.com/**', (route) => route.fulfill({ contentType: 'image/jpeg', body: fs.readFileSync(path.join(ROOT, 'scripts/assets/demo-thumb.jpg')) }));
 await context.route('https://www.youtube.com/**', (route) => {
   const url = route.request().url();
   if (url.includes('/youtubei/v1/get_transcript')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify(transcriptJson) });
@@ -84,7 +85,7 @@ try {
 
   // Captura de la configuración: proveedores y métodos de protección.
   await opts.evaluate(async () => {
-    await chrome.storage.local.set({ settings: { provider: 'anthropic', providers: { anthropic: { apiKey: 'demo', model: '' }, openrouter: { apiKey: 'demo' }, openai: { apiKey: 'demo' }, gemini: { apiKey: 'demo' } } } });
+    await chrome.storage.local.set({ settings: { onboardingDone: true, provider: 'anthropic', providers: { anthropic: { apiKey: 'demo', model: '' }, openrouter: { apiKey: 'demo' }, openai: { apiKey: 'demo' }, gemini: { apiKey: 'demo' } } } });
   });
   await opts.reload();
   await opts.waitForSelector('.provider.active');
@@ -93,12 +94,12 @@ try {
 
   // Mostrar OpenRouter en el selector (las llamadas se interceptan); si no se puede, la API local.
   await opts.evaluate(async () => {
-    await chrome.storage.local.set({ settings: { provider: 'openrouter', providers: { openrouter: { apiKey: 'demo', model: 'anthropic/claude-opus-5.5' } }, responseLanguage: 'es' } });
+    await chrome.storage.local.set({ settings: { onboardingDone: true, provider: 'openrouter', providers: { openrouter: { apiKey: 'demo', model: 'anthropic/claude-opus-5.5' } }, responseLanguage: 'es' } });
   });
   const probe = await opts.evaluate(() => chrome.runtime.sendMessage({ type: 'testProvider', providerId: 'openrouter' }));
   if (!probe.ok) {
     await opts.evaluate(async (api) => {
-      await chrome.storage.local.set({ settings: { provider: 'custom', providers: { custom: { baseUrl: api, model: 'claude-opus-5-5', apiKey: '' } }, responseLanguage: 'es' } });
+      await chrome.storage.local.set({ settings: { onboardingDone: true, provider: 'custom', providers: { custom: { baseUrl: api, model: 'claude-opus-5-5', apiKey: '' } }, responseLanguage: 'es' } });
     }, API);
   }
 

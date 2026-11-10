@@ -48,7 +48,7 @@ async function withShortcuts(settings) {
   return { ...settings, shortcuts };
 }
 
-const CONTENT_WRITABLE = ['panelCollapsed', 'shortsCollapsed', 'showTimestamps', 'autoScroll', 'responseLanguage', 'provider', 'ttsVoice', 'ttsRate'];
+const CONTENT_WRITABLE = ['panelCollapsed', 'shortsCollapsed', 'showTimestamps', 'autoScroll', 'responseLanguage', 'provider', 'ttsVoice', 'ttsRate', 'windows', 'onboardingDone'];
 
 async function updateFromContent({ patch = {}, model }) {
   const s = await getSettings();
@@ -153,7 +153,7 @@ chrome.runtime.onConnect.addListener((port) => {
   });
 });
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     try {
       if (msg.type === 'openOptions') {
@@ -165,6 +165,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
       if (msg.type === 'updateSettings') {
         return { ok: true, settings: await withShortcuts(await updateFromContent(msg)) };
+      }
+      if (msg.type === 'openPopout') {
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        await chrome.storage.session.set({ [`popout:${id}`]: { ...msg.payload, tabId: sender?.tab?.id } });
+        await chrome.windows.create({
+          url: chrome.runtime.getURL(`src/popout/popout.html#${id}`),
+          type: 'popup',
+          width: Math.min(Number(msg.width) || 620, 1600),
+          height: Math.min(Number(msg.height) || 800, 1200),
+          focused: true,
+        });
+        return { ok: true };
       }
       if (msg.type === 'printDoc') {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;

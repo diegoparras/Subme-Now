@@ -181,7 +181,7 @@ mark { background: var(--sn-hl); color: inherit; border-radius: 3px; padding: 0 
 }
 .sn-output-title { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sn-output-tools { display: flex; gap: 2px; flex-shrink: 0; }
-.sn-output { padding: 4px 14px 12px; max-height: 560px; overflow-y: auto; }
+.sn-output { padding: 4px 14px 12px; max-height: 560px; overflow-y: auto; animation: sn-fade .2s ease; }
 .sn-progress { font-size: 12.5px; color: var(--sn-fg-2); padding: 8px 0; display: flex; align-items: center; gap: 8px; }
 .sn-spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--sn-border); border-top-color: var(--sn-accent); animation: sn-spin .8s linear infinite; }
 @keyframes sn-spin { to { transform: rotate(360deg); } }
@@ -212,6 +212,47 @@ a.sn-ts {
   font-variant-numeric: tabular-nums; font-size: .92em; font-weight: 500; white-space: nowrap;
 }
 a.sn-ts:hover { text-decoration: underline; }
+
+/* Tarjeta del video */
+.sn-video { display: flex; gap: 10px; align-items: center; padding: 10px 12px 2px; }
+.sn-video img { width: 64px; height: 36px; border-radius: 6px; object-fit: cover; flex: none; background: var(--sn-bg-3); }
+.sn-video-info { min-width: 0; display: flex; flex-direction: column; }
+.sn-video-info b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sn-video-info span { font-size: 11.5px; color: var(--sn-fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Pantallas vacías */
+.sn-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 22px 16px 10px; color: var(--sn-fg-2); font-size: 13px; }
+.sn-empty b { color: var(--sn-fg); font-size: 14px; }
+.sn-empty-icon { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; background: var(--sn-accent-soft); margin-bottom: 4px; }
+.sn-empty-icon .sn-i { width: 24px; height: 24px; color: var(--sn-accent); }
+
+/* Recorrido guiado */
+.sn-tour { position: absolute; inset: 0; z-index: 30; background: rgba(10, 10, 20, .35); border-radius: var(--sn-radius); }
+.sn-tour-target { position: relative; z-index: 31; box-shadow: 0 0 0 3px var(--sn-accent), 0 0 0 9999px rgba(0,0,0,0); border-radius: 10px; background: var(--sn-bg); }
+.sn-tour-card { position: absolute; left: 12px; right: 12px; z-index: 32; background: var(--sn-bg); border: 1px solid var(--sn-border); border-radius: 14px; padding: 14px 16px 12px; box-shadow: 0 16px 40px rgba(0,0,0,.25); animation: sn-fade .2s ease; }
+.sn-tour-card b { font-size: 15px; }
+.sn-tour-card p { margin: 4px 0 10px; color: var(--sn-fg-2); }
+.sn-tour-step { font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--sn-accent); text-transform: uppercase; margin-bottom: 2px; }
+.sn-tour-actions { display: flex; justify-content: space-between; align-items: center; }
+
+/* Densidad compacta */
+.sn-root.compact { font-size: 13px; }
+.compact .sn-header { padding: 6px 10px; }
+.compact .sn-pane { padding: 8px 10px 10px; }
+.compact .sn-action { min-height: 30px; padding: 5px 8px; }
+.compact .sn-seg { padding: 3px 6px; }
+.compact .sn-btn { padding: 4px 8px; }
+.compact .sn-video { padding: 8px 10px 0; }
+.compact .sn-tab { padding: 6px 10px; }
+
+/* Siluetas de carga */
+.sn-skeleton { padding: 10px 0; }
+.sk { height: 11px; border-radius: 6px; margin: 9px 0; background: linear-gradient(90deg, var(--sn-bg-3) 0%, var(--sn-bg-2) 50%, var(--sn-bg-3) 100%); background-size: 200% 100%; animation: sk 1.2s ease-in-out infinite; }
+.sk-title { height: 16px; width: 55%; margin-bottom: 14px; }
+.sk-short { width: 62%; }
+.sk-block { height: 54px; border-radius: 10px; margin: 14px 0; }
+@keyframes sk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.sn-skeleton-msg { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--sn-fg-2); margin-top: 12px; }
 
 /* Lectura en voz alta */
 .sn-tts { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--sn-border); background: var(--sn-accent-soft); }

@@ -162,7 +162,7 @@
     .map(([code, name]) => `<option value="${code}">${name.charAt(0).toUpperCase() + name.slice(1)}</option>`).join('');
 
   const simple = {
-    obsidianVault: 'value', obsidianFolder: 'value',
+    obsidianVault: 'value', obsidianFolder: 'value', density: 'value',
     responseLanguage: 'value', maxOutputTokens: 'number', maxContextChars: 'number', transcriptLanguage: 'value', defaultTab: 'value',
     showTimestamps: 'checked', autoScroll: 'checked', panelCollapsed: 'checked', shortsCollapsed: 'checked', autoSummary: 'checked',
   };
