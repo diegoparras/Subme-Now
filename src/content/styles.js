@@ -306,7 +306,9 @@ a.sn-ts:hover { text-decoration: underline; }
 .sn-chip { border: 1px solid var(--sn-border); background: var(--sn-bg-2); border-radius: 999px; padding: 4px 10px; font-size: 12.5px; }
 .sn-chip:hover { border-color: var(--sn-accent); color: var(--sn-accent); }
 .sn-chat-form { display: flex; gap: 6px; align-items: flex-end; margin-top: 8px; }
-.sn-chat-tools { display: flex; justify-content: flex-end; margin-top: 4px; }
+.sn-chat-tools { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+.sn-chat-tools .sn-link { display: inline-flex; align-items: center; gap: 5px; }
+:host([data-mode="side"]) .sn-chat-tools { justify-content: flex-end; }
 
 .sn-toast {
   position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);

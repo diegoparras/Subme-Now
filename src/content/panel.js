@@ -122,7 +122,7 @@
         <textarea class="sn-textarea" data-ref="chatinput" rows="2" placeholder="Pregunta algo sobre el video… (Enter para enviar)"></textarea>
         <button class="sn-btn primary" type="submit" data-ref="chatsend">Enviar</button>
       </form>
-      <div class="sn-chat-tools"><button class="sn-link" data-act="detachchat">${I('detach')}Desacoplar</button><button class="sn-link" data-act="chatclear">Nueva conversación</button></div>
+      <div class="sn-chat-tools"><button class="sn-link" data-act="detachchat">${I('detach')}Desacoplar</button><button class="sn-link" data-act="chatclear">${I('refresh')}Nueva conversación</button></div>
     </section>
   </div>
 </div>

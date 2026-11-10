@@ -843,6 +843,8 @@ try {
   });
   check('Historial: el quiz vuelve con la respuesta dada y sin gastar IA', quizState.picked >= 0 && quizState.note && requests.length === reqBefore, JSON.stringify(quizState));
   await page.locator('#subme-now-host [data-tab="chat"]').click();
+  await page.locator('#subme-now-host .sn-chat-tools').screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'subme-e2e-chattools.png') });
+  check('Chat: los enlaces del pie no quedan pegados', await page.evaluate(() => { const [a, b] = document.querySelector('#subme-now-host').shadowRoot.querySelectorAll('.sn-chat-tools .sn-link'); return b.getBoundingClientRect().left - a.getBoundingClientRect().right >= 12; }));
   check('Historial: el chat se restaura', (await page.locator('#subme-now-host .sn-msg.user').count()) >= 1);
   // Pedido libre guardado
   await page.locator('#subme-now-host [data-tab="ai"]').click();
