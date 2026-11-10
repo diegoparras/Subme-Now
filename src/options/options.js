@@ -165,6 +165,7 @@
     obsidianVault: 'value', obsidianFolder: 'value', density: 'value',
     responseLanguage: 'value', maxOutputTokens: 'number', maxContextChars: 'number', transcriptLanguage: 'value', defaultTab: 'value',
     showTimestamps: 'checked', autoScroll: 'checked', panelCollapsed: 'checked', shortsCollapsed: 'checked', autoSummary: 'checked',
+    sidePanelOnAction: 'checked', historyEnabled: 'checked', historyDays: 'number',
   };
   function renderGeneral() {
     for (const [key, prop] of Object.entries(simple)) {
@@ -182,6 +183,8 @@
       save();
     });
   }
+
+  $('openLibrary').addEventListener('click', () => chrome.tabs.create({ url: chrome.runtime.getURL('src/library/library.html') }));
 
   /* ---------- acciones personalizadas ---------- */
 
@@ -411,6 +414,7 @@
     const root = document.documentElement;
     if (c) { root.setAttribute('data-accent', ''); root.style.setProperty('--user-accent', c); }
     else { root.removeAttribute('data-accent'); root.style.removeProperty('--user-accent'); }
+    SubmeLogo.applyTo(document.querySelectorAll('img[data-logo]'), c);
   }
 
   function renderIconColors() {

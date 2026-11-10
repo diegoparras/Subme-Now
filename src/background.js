@@ -1,5 +1,5 @@
 /* Subme Now — service worker: realiza las llamadas a las APIs de IA (evita CORS y mantiene las claves fuera de la página). */
-importScripts('shared/settings.js', 'shared/providers.js', 'shared/vault.js');
+importScripts('shared/settings.js', 'shared/providers.js', 'shared/vault.js', 'shared/history.js', 'shared/logo.js');
 
 const { getSettings } = SubmeSettings;
 const P = SubmeProviders;
@@ -71,9 +71,82 @@ chrome.commands?.onCommand.addListener((command, tab) => {
 
 chrome.action.onClicked.addListener(() => chrome.runtime.openOptionsPage());
 
+/** Ícono de la barra con el color de acento, y comportamiento del ícono (panel lateral u opciones). */
+async function applyChrome(settings) {
+  try {
+    const imageData = await SubmeLogo.actionIcon(settings.iconColor);
+    if (imageData) await chrome.action.setIcon({ imageData });
+    else await chrome.action.setIcon({ path: { 16: '/icons/icon16.png', 32: '/icons/icon32.png', 48: '/icons/icon48.png' } });
+  } catch { /* se mantiene el ícono por defecto */ }
+  try { await chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: settings.sidePanelOnAction !== false }); } catch { /* sin panel lateral */ }
+}
+
+let lastIconColor = null;
+let lastSideBehavior = null;
+SubmeSettings.onSettingsChanged((s) => {
+  if (s.iconColor === lastIconColor && s.sidePanelOnAction === lastSideBehavior) return;
+  lastIconColor = s.iconColor;
+  lastSideBehavior = s.sidePanelOnAction;
+  applyChrome(s);
+});
+
+/** Limpieza automática del historial (como mucho una vez por hora). */
+let lastPrune = 0;
+async function maybePrune(force = false) {
+  if (!force && Date.now() - lastPrune < 3600000) return;
+  lastPrune = Date.now();
+  try { await SubmeHistory.prune((await getSettings()).historyDays); } catch { /* sin historial */ }
+}
+
+async function startup() {
+  const s = await getSettings();
+  lastIconColor = s.iconColor;
+  lastSideBehavior = s.sidePanelOnAction;
+  await applyChrome(s);
+  maybePrune(true);
+}
+chrome.runtime.onStartup.addListener(startup);
+
 chrome.runtime.onInstalled.addListener((details) => {
+  startup();
   if (details.reason === 'install') chrome.runtime.openOptionsPage();
 });
+
+/** Datos del video que el panel de YouTube puede guardar en el historial. */
+function cleanVideo(v = {}) {
+  return {
+    title: String(v.title || '').slice(0, 300),
+    author: String(v.author || '').slice(0, 200),
+    channelId: String(v.channelId || '').slice(0, 64),
+    lengthSeconds: Number(v.lengthSeconds) || 0,
+    isShort: !!v.isShort,
+  };
+}
+
+const VIDEO_ID = /^[\w-]{6,20}$/;
+
+/** Transcripción con Gemini leyendo el video de YouTube directamente. */
+async function runTranscribe({ videoId }, signal, onText) {
+  if (!VIDEO_ID.test(videoId || '')) throw new Error('Video no válido.');
+  const settings = await settingsWithKeys();
+  const cfg = P.resolveConfig(settings, 'gemini');
+  if (!cfg.apiKey) throw Object.assign(new Error('Para transcribir con IA necesitas una API key de Gemini. Agrégala en la configuración de Subme Now.'), { code: 'NO_GEMINI' });
+  const { url, init } = P.buildTranscribeRequest(cfg, `https://www.youtube.com/watch?v=${videoId}`);
+  const res = await fetch(url, { ...init, signal });
+  if (!res.ok) {
+    const err = await P.readError(res);
+    if (res.status === 400 || res.status === 403) err.message += ' Solo se pueden transcribir videos públicos.';
+    throw err;
+  }
+  let notice = '';
+  await readSSE(res, (eventName, data) => {
+    let parsed;
+    try { parsed = P.parseStreamEvent(cfg, eventName, data); } catch (e) { if (e instanceof SyntaxError) return; throw e; }
+    if (parsed.text) onText(parsed.text);
+    if (parsed.notice) notice = parsed.notice;
+  });
+  return { notice, model: cfg.model };
+}
 
 /** Lector SSE genérico. Llama a onEvent(eventName, data) por cada evento. */
 async function readSSE(response, onEvent) {
@@ -134,7 +207,7 @@ async function runChat({ system, messages, providerId }, signal, onText) {
 }
 
 chrome.runtime.onConnect.addListener((port) => {
-  if (port.name !== 'subme-ai') return;
+  if (port.name !== 'subme-ai' && port.name !== 'subme-transcribe') return;
   let controller = null;
   let alive = true;
   const post = (msg) => { if (alive) try { port.postMessage(msg); } catch { alive = false; } };
@@ -145,7 +218,8 @@ chrome.runtime.onConnect.addListener((port) => {
     if (msg.type !== 'run') return; // 'ping' solo mantiene vivo el service worker
     controller = new AbortController();
     try {
-      const meta = await runChat(msg.payload, controller.signal, (text) => post({ type: 'delta', text }));
+      const run = port.name === 'subme-transcribe' ? runTranscribe : runChat;
+      const meta = await run(msg.payload, controller.signal, (text) => post({ type: 'delta', text }));
       post({ type: 'done', ...meta });
     } catch (e) {
       if (e.name !== 'AbortError') post({ type: 'error', message: e.message || String(e), code: e.code });
@@ -158,6 +232,31 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     try {
       if (msg.type === 'openOptions') {
         await chrome.runtime.openOptionsPage();
+        return { ok: true };
+      }
+      if (msg.type === 'historyGet') {
+        const s = await getSettings();
+        if (s.historyEnabled === false || !VIDEO_ID.test(msg.videoId || '')) return { ok: true, record: null };
+        return { ok: true, record: await SubmeHistory.get(msg.videoId) };
+      }
+      if (msg.type === 'historySave') {
+        const s = await getSettings();
+        if (s.historyEnabled === false || !VIDEO_ID.test(msg.videoId || '')) return { ok: true, saved: false };
+        const patch = { ...msg.patch, video: cleanVideo(msg.patch?.video) };
+        delete patch.meta; // favoritos y etiquetas solo desde la biblioteca
+        await SubmeHistory.applyPatch(msg.videoId, patch);
+        maybePrune();
+        return { ok: true, saved: true };
+      }
+      if (msg.type === 'openLibrary') {
+        const hash = VIDEO_ID.test(msg.videoId || '') ? `#v=${msg.videoId}` : '';
+        await chrome.tabs.create({ url: chrome.runtime.getURL(`src/library/library.html${hash}`) });
+        return { ok: true };
+      }
+      if (msg.type === 'openSidePanel') {
+        const tabId = sender?.tab?.id;
+        if (tabId == null || !chrome.sidePanel) throw new Error('Tu versión de Chrome no tiene panel lateral.');
+        await chrome.sidePanel.open({ tabId });
         return { ok: true };
       }
       if (msg.type === 'getPublicSettings') {

@@ -10,6 +10,7 @@
     if (/^#[0-9a-f]{6}$/i.test(c || '')) {
       document.documentElement.setAttribute('data-accent', '');
       document.documentElement.style.setProperty('--user-accent', c);
+      SubmeLogo.applyTo(document.querySelectorAll('img[data-logo]'), c);
     }
   } catch { /* usar el color por defecto */ }
 

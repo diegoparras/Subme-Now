@@ -22,6 +22,7 @@ const check = (name, ok, extra = '') => { results.push({ name, ok }); console.lo
 
 // ---------- API de IA falsa (compatible con OpenAI) ----------
 const requests = [];
+const geminiRequests = [];
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', '*');
@@ -32,6 +33,18 @@ const server = http.createServer((req, res) => {
     if (req.url.endsWith('/models')) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ data: [{ id: 'fake-model' }, { id: 'fake-model-2' }] }));
+      return;
+    }
+    if (req.url.includes(':streamGenerateContent')) {
+      // Gemini: transcripción de un video sin subtítulos.
+      geminiRequests.push({ url: req.url, key: req.headers['x-goog-api-key'], body: JSON.parse(body || '{}') });
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      const lines = ['[00:00] Hola, esto lo transcribió la IA.\n', '[00:05] Hablamos de pronunciación ', 'y acentos.\n', '[01:10] Fin del video.\n'];
+      for (const text of lines) {
+        res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }], role: 'model' } }] })}\n\n`);
+        await new Promise((r) => setTimeout(r, 30));
+      }
+      res.end();
       return;
     }
     const json = JSON.parse(body || '{}');
@@ -517,8 +530,13 @@ try {
   check('Modelo guardado desde el panel', saved.providers.custom.model === 'fake-model-2' && saved.recentModels.custom[0] === 'fake-model-2');
   await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'subme-e2e-modelbar.png'), clip: { x: 600, y: 0, width: 680, height: 420 } });
   await page.locator('#subme-now-host [data-action="summary"]').click();
-  await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-output table'), null, { timeout: 10000 });
-  check('El nuevo modelo se usa en la consulta', requests.at(-1).model === 'fake-model-2');
+  check('Historial: el resultado guardado se muestra sin llamar a la IA', await page.evaluate(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-output').textContent.includes('Guardado el')));
+  {
+    const before = requests.length;
+    await page.locator('#subme-now-host [data-act="regen"]').click();
+    await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-output table') && !document.querySelector('#subme-now-host').shadowRoot.querySelector('[data-act="stop"]:not([hidden])'), null, { timeout: 10000 });
+    check('El nuevo modelo se usa en la consulta', requests.length === before + 1 && requests.at(-1).model === 'fake-model-2');
+  }
 
   // Chat
   await page.locator('#subme-now-host [data-tab="chat"]').click();
@@ -560,6 +578,7 @@ try {
     await page.locator('#subme-now-host [data-ref="lockbtn"]').waitFor({ state: 'visible', timeout: 5000 });
     const before = requests.length;
     await page.locator(`#subme-now-host [data-action="${action}"]`).click();
+    await page.locator('#subme-now-host [data-act="regen"]').click(); // puede estar guardado: forzar una consulta nueva
     await page.locator('#subme-now-host .sn-output [data-act="unlock"]').waitFor({ timeout: 10000 });
     return requests.length === before;
   };
@@ -568,8 +587,9 @@ try {
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
     const before = requests.length;
     await page.locator(`#subme-now-host [data-action="${action}"]`).click();
-    await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-output .vw'), null, { timeout: 10000 });
-    return requests.length === before + 1;
+    await page.locator('#subme-now-host [data-act="regen"]').click();
+    await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-output .vw') && !document.querySelector('#subme-now-host').shadowRoot.querySelector('[data-act="stop"]:not([hidden])'), null, { timeout: 10000 });
+    return requests.length > before;
   };
   const lockFromOptions = async () => {
     await opts.bringToFront();
@@ -759,6 +779,186 @@ try {
     return { error: st.classList.contains('error'), retry: !!st.querySelector('[data-act="retry"]'), text: st.textContent };
   });
   check('Sin subtítulos: aviso claro, sin error ni "Reintentar"', !infoState.error && !infoState.retry && infoState.text.includes('no tiene subtítulos'), infoState.text.slice(0, 80));
+
+
+  // ---------- v1.6: transcripción con IA (Gemini) para videos sin subtítulos ----------
+  check('Sin subtítulos: ofrece "Transcribir con IA"', await page.locator('#subme-now-host [data-act="transcribe"]').isVisible());
+  await page.locator('#subme-now-host').screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'subme-e2e-nocaptions.png') });
+  await page.locator('#subme-now-host [data-act="transcribe"]').click();
+  await page.locator('#subme-now-host [data-ref="status"] [data-act="settings"]').waitFor({ timeout: 5000 });
+  check('Transcribir con IA sin clave de Gemini: pide configurarla', geminiRequests.length === 0);
+  await opts.evaluate(async (api) => {
+    const { settings } = await chrome.storage.local.get('settings');
+    settings.providers.gemini = { apiKey: 'g-key-de-prueba', model: 'gemini-2.5-flash', baseUrl: api };
+    await chrome.storage.local.set({ settings });
+  }, API);
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page.waitForTimeout(400);
+  await page.evaluate(() => { history.pushState({}, '', '/watch?v=abc123XYZ00'); document.dispatchEvent(new Event('yt-navigate-finish')); });
+  await page.waitForTimeout(600);
+  await page.evaluate(() => { history.pushState({}, '', '/watch?v=NOSUBS0001'); document.dispatchEvent(new Event('yt-navigate-finish')); });
+  await page.locator('#subme-now-host [data-act="transcribe"]').click({ timeout: 10000 });
+  await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelectorAll('.sn-seg').length === 3, null, { timeout: 10000 });
+  const g = geminiRequests.at(-1);
+  check('Gemini recibe la URL del video de YouTube', g && g.body.contents[0].parts[0].file_data.file_uri === 'https://www.youtube.com/watch?v=NOSUBS0001' && g.key === 'g-key-de-prueba' && g.url.includes('gemini-2.5-flash'));
+  const aiTr = await page.evaluate(() => {
+    const sh = document.querySelector('#subme-now-host').shadowRoot;
+    return { lang: sh.querySelector('[data-ref="lang"]').selectedOptions[0]?.textContent, first: sh.querySelector('.sn-seg').textContent, second: sh.querySelectorAll('.sn-seg')[1].dataset.t };
+  });
+  check('Transcripción con IA en el panel, con marcas de tiempo', aiTr.lang === 'Transcripción con IA' && aiTr.first.includes('lo transcribió la IA') && aiTr.second === '5', JSON.stringify(aiTr));
+  // Al volver al video, la transcripción hecha con IA se recupera del historial sin pagarla de nuevo.
+  await page.evaluate(() => { history.pushState({}, '', '/watch?v=abc123XYZ00'); document.dispatchEvent(new Event('yt-navigate-finish')); });
+  await page.waitForTimeout(800);
+  await page.evaluate(() => { history.pushState({}, '', '/watch?v=NOSUBS0001'); document.dispatchEvent(new Event('yt-navigate-finish')); });
+  await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelectorAll('.sn-seg').length === 3, null, { timeout: 10000 });
+  check('Transcripción con IA guardada: no se vuelve a pedir', geminiRequests.length === 1);
+
+  // ---------- v1.6: historial por video ----------
+  await page.evaluate(() => { history.pushState({}, '', '/watch?v=abc123XYZ00'); document.dispatchEvent(new Event('yt-navigate-finish')); });
+  await page.waitForTimeout(800);
+  const rec = (await opts.evaluate((id) => chrome.runtime.sendMessage({ type: 'historyGet', videoId: id }), VIDEO_ID)).record;
+  check('Historial: guarda resultados, chat y transcripción del video', rec && rec.results.summary && rec.results.flashcards && rec.chat.length >= 2 && rec.transcript.segments.length > 0 && rec.title === 'Video de prueba',
+    rec ? Object.keys(rec.results).join(',') : 'sin registro');
+  // Progreso de una vista: responder una pregunta del quiz.
+  await page.locator('#subme-now-host [data-tab="ai"]').click();
+  await page.locator('#subme-now-host [data-action="quiz"]').click();
+  await page.locator('#subme-now-host .vw-option').first().waitFor({ timeout: 10000 });
+  await page.evaluate(() => document.querySelector('#subme-now-host').shadowRoot.querySelectorAll('.vw-option')[1].click());
+  await page.waitForTimeout(1200);
+  const rec2 = (await opts.evaluate((id) => chrome.runtime.sendMessage({ type: 'historyGet', videoId: id }), VIDEO_ID)).record;
+  check('Historial: guarda el progreso del quiz', rec2?.viewStates?.quiz?.answers?.[0] === 1, JSON.stringify(rec2?.viewStates?.quiz));
+  // Recargar la página: todo vuelve sin llamar a la IA.
+  const reqBefore = requests.length;
+  await page.reload();
+  await page.waitForFunction(() => document.querySelector('#subme-now-host')?.shadowRoot.querySelectorAll('.sn-seg').length > 0, null, { timeout: 15000 });
+  await page.waitForTimeout(500);
+  await page.locator('#subme-now-host [data-tab="ai"]').click();
+  const badge = await page.evaluate(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('[data-ref="aibadge"]').textContent);
+  check('Historial: al volver al video se ven los resultados guardados', Number(badge) >= 5, `insignia ${badge}`);
+  await page.locator('#subme-now-host [data-action="quiz"]').click();
+  await page.locator('#subme-now-host .vw-option').first().waitFor({ timeout: 5000 });
+  const quizState = await page.evaluate(() => {
+    const sh = document.querySelector('#subme-now-host').shadowRoot;
+    return { picked: [...sh.querySelectorAll('.vw-option')].findIndex((b) => b.className.includes('ok') || b.className.includes('bad') || b.className.includes('picked') || b.disabled), note: sh.querySelector('.sn-output').textContent.includes('Guardado el') };
+  });
+  check('Historial: el quiz vuelve con la respuesta dada y sin gastar IA', quizState.picked >= 0 && quizState.note && requests.length === reqBefore, JSON.stringify(quizState));
+  await page.locator('#subme-now-host [data-tab="chat"]').click();
+  check('Historial: el chat se restaura', (await page.locator('#subme-now-host .sn-msg.user').count()) >= 1);
+  // Pedido libre guardado
+  await page.locator('#subme-now-host [data-tab="ai"]').click();
+  await page.locator('#subme-now-host [data-ref="free"]').fill('Dame tres ideas para aplicar esto');
+  await page.locator('#subme-now-host [data-act="free"]').click();
+  await page.locator('#subme-now-host [data-ref="saved"] .sn-chip').waitFor({ timeout: 10000 });
+  check('Historial: los pedidos libres quedan guardados', (await page.locator('#subme-now-host [data-ref="saved"] .sn-chip').textContent()).includes('Dame tres ideas'));
+  await page.waitForTimeout(400);
+
+  // ---------- v1.6: biblioteca ----------
+  const lib = await context.newPage();
+  lib.on('pageerror', (e) => errors.push(`biblioteca: ${e.message}`));
+  await lib.goto(`chrome-extension://${extId}/src/library/library.html`);
+  await lib.locator('.vcard').first().waitFor({ timeout: 10000 });
+  check('Biblioteca: lista los videos guardados', (await lib.locator('.vcard').count()) === 2, `${await lib.locator('.vcard').count()} videos`);
+  check('Biblioteca: tarjeta con miniatura, título y resultados', (await lib.locator('.vcard', { hasText: 'Video de prueba' }).locator('.chip').count()) >= 5);
+  await lib.fill('#q', 'pronunciacion');
+  await lib.locator('.hit', { hasText: 'pronunciación' }).first().waitFor({ timeout: 5000 });
+  check('Biblioteca: busca sin importar acentos y da el minuto', (await lib.locator('.hit .ts').first().textContent()).includes('00:05'));
+  await lib.fill('#q', 'Tema central');
+  await lib.locator('.hit', { hasText: 'Tema central' }).first().waitFor({ timeout: 5000 });
+  const hitTs = await lib.locator('.hit .ts').first().getAttribute('href');
+  check('Biblioteca: busca dentro de los resultados con su minuto', hitTs.includes(`v=${VIDEO_ID}`) && hitTs.includes('t=8s'), hitTs);
+  await lib.fill('#q', '');
+  await lib.waitForTimeout(400);
+  await lib.selectOption('#fType', 'ai-transcript');
+  check('Biblioteca: filtro por tipo', (await lib.locator('.vcard').count()) === 1 && (await lib.locator('.vcard').textContent()).includes('Sin subtítulos'));
+  await lib.selectOption('#fType', '');
+  await lib.locator('.vcard', { hasText: 'Video de prueba' }).locator('.star').click();
+  await lib.locator('#fFav').click();
+  check('Biblioteca: favoritos', (await lib.locator('.vcard').count()) === 1);
+  await lib.locator('#fFav').click();
+  await lib.locator('.vcard', { hasText: 'Video de prueba' }).click();
+  await lib.locator('#detail .d-nav [data-sel]').first().waitFor({ timeout: 5000 });
+  await lib.locator('#tagInput').fill('idiomas');
+  await lib.locator('#tagInput').press('Enter');
+  await lib.waitForTimeout(300);
+  await lib.locator('#detail [data-sel="r:flashcards"]').click();
+  const libCards = await lib.evaluate(() => document.querySelector('#dView > div').shadowRoot.querySelectorAll('.vw-card, .vw-flip, .vw-face').length);
+  check('Biblioteca: abre un resultado con su vista gráfica', libCards > 0);
+  await lib.keyboard.press('Escape');
+  check('Biblioteca: etiquetas', (await lib.locator('#fTag option').count()) === 2 && (await lib.locator('.vcard .chip.tag').first().textContent()) === '#idiomas');
+  // Repaso combinado de tarjetas
+  check('Biblioteca: botón de repaso con las tarjetas pendientes', (await lib.locator('#reviewBtn b').textContent()) === '3');
+  await lib.locator('#reviewBtn').click();
+  await lib.locator('.rv-card').click();
+  await lib.locator('[data-grade="good"]').click();
+  await lib.waitForTimeout(200);
+  const deck = await lib.evaluate(() => SubmeHistory.deckAll());
+  check('Biblioteca: repaso con repetición espaciada', deck.length === 1 && deck[0].box === 1 && deck[0].due > Date.now() + 3600000);
+  await lib.keyboard.press('Escape');
+  await lib.waitForTimeout(200);
+  check('Biblioteca: quedan 2 tarjetas para hoy', (await lib.locator('#reviewBtn b').textContent()) === '2');
+  // Exportar
+  await lib.locator('#exportBtn').click();
+  const [libDl] = await Promise.all([lib.waitForEvent('download'), lib.locator('[data-export="json"]').click()]);
+  const backup = JSON.parse(fs.readFileSync(await libDl.path(), 'utf8'));
+  check('Biblioteca: respaldo JSON completo', backup.videos.length === 2 && backup.deck.length === 1);
+  await lib.locator('#exportBtn').click();
+  const [libMd] = await Promise.all([lib.waitForEvent('download'), lib.locator('[data-export="md"]').click()]);
+  const libText = fs.readFileSync(await libMd.path(), 'utf8');
+  check('Biblioteca: exportar todo a Markdown', libText.includes('## Video de prueba') && libText.includes('### Resumen') && libText.includes('**P:**'));
+  // Borrado automático por antigüedad (los favoritos se conservan)
+  await lib.evaluate(async () => {
+    for (const r of await SubmeHistory.all()) { r.updatedAt = Date.now() - 40 * 86400000; await SubmeHistory.put(r); }
+  });
+  await lib.locator('#settingsBtn').click();
+  await lib.selectOption('#historyDays', '30');
+  await lib.waitForTimeout(500);
+  const left = await lib.evaluate(async () => (await SubmeHistory.all()).map((r) => r.videoId));
+  check('Biblioteca: borra lo viejo y conserva favoritos', left.length === 1 && left[0] === 'abc123XYZ00', left.join(','));
+  await lib.selectOption('#historyDays', '0');
+  await lib.close();
+
+  // ---------- v1.6: panel lateral de Chrome ----------
+  const ytTabId = await opts.evaluate(async () => {
+    for (const t of await chrome.tabs.query({})) {
+      try { const r = await chrome.tabs.sendMessage(t.id, { type: 'subme-remote', fn: 'whoami' }); if (r?.ok && r.value) return t.id; } catch { /* no es YouTube */ }
+    }
+    return null;
+  });
+  const side = await context.newPage();
+  side.on('pageerror', (e) => errors.push(`panel lateral: ${e.message}`));
+  await side.goto(`chrome-extension://${extId}/src/sidepanel/sidepanel.html#tab=${ytTabId}`);
+  await side.waitForFunction(() => document.querySelector('#subme-now-host')?.shadowRoot.querySelectorAll('.sn-seg').length > 0, null, { timeout: 15000 });
+  check('Panel lateral: muestra la transcripción del video de la pestaña', (await side.evaluate(() => document.querySelector('#subme-now-host').getAttribute('data-mode'))) === 'side');
+  check('Panel lateral: el panel dentro de YouTube se oculta', await page.evaluate(() => getComputedStyle(document.querySelector('#subme-now-host')).display === 'none'));
+  await side.evaluate(() => document.querySelector('#subme-now-host').shadowRoot.querySelectorAll('.sn-seg')[2].click());
+  await page.waitForTimeout(400);
+  check('Panel lateral: clic en una línea salta en el video', Math.round(await page.evaluate(() => document.querySelector('video').currentTime)) === 8);
+  await side.locator('#subme-now-host [data-tab="ai"]').click();
+  await side.screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'subme-e2e-side.png') });
+  check('Panel lateral: resultados guardados disponibles', Number(await side.evaluate(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('[data-ref="aibadge"]').textContent)) >= 5);
+  await side.close();
+  await page.waitForTimeout(400);
+  check('Panel lateral: al cerrarlo vuelve el panel en YouTube', await page.evaluate(() => getComputedStyle(document.querySelector('#subme-now-host')).display !== 'none'));
+
+  // ---------- v1.6: el logo toma el color de acento ----------
+  await opts.evaluate(async () => { const { settings } = await chrome.storage.local.get('settings'); settings.iconColor = '#2f7de1'; await chrome.storage.local.set({ settings }); });
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page.waitForTimeout(500);
+  const logoBg = await page.evaluate(() => getComputedStyle(document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-logo')).backgroundImage);
+  await page.locator('#subme-now-host').screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'subme-e2e-accent.png') });
+  check('Logo: el degradé usa el color elegido (azul)', logoBg.includes('47, 125, 225') && !logoBg.includes('255, 61, 127'), logoBg);
+  await opts.reload();
+  await opts.waitForSelector('.provider');
+  await opts.waitForTimeout(500);
+  const optLogo = await opts.evaluate(() => {
+    const img = document.querySelector('img[data-logo]');
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0);
+    return [...ctx.getImageData(Math.round(c.width * 0.12), Math.round(c.height * 0.5), 1, 1).data];
+  });
+  check('Logo: en la configuración también cambia de color', optLogo[2] > optLogo[0] + 60, optLogo.join(','));
+  await opts.evaluate(async () => { const { settings } = await chrome.storage.local.get('settings'); settings.iconColor = ''; await chrome.storage.local.set({ settings }); });
 
   check('Sin errores en la consola', errors.length === 0, errors.join(' | '));
 } finally {

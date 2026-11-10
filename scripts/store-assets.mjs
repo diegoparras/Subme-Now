@@ -4,7 +4,7 @@
  *
  *   node scripts/store-assets.mjs
  *
- * Salida: store/screenshots/*.png (1280x800), store/promo-small-440x280.png, store/marquee-1400x560.png
+ * Salida: store/screenshots/*.png (1280x800; las 1 a 5 son las recomendadas para la tienda), store/promo-small-440x280.png, store/marquee-1400x560.png
  */
 import { createRequire } from 'node:module';
 import http from 'node:http';
@@ -24,7 +24,7 @@ const SHOTS = path.join(OUT, 'screenshots');
 fs.mkdirSync(SHOTS, { recursive: true });
 
 /* ---------------- contenido de ejemplo ---------------- */
-import { VIDEO_ID, TITLE, LINES, RESPONSES, pickResponse, playerResponse, initialData, transcriptJson } from './demo-data.mjs';
+import { VIDEO_ID, TITLE, LINES, RESPONSES, STRUCTURED, pickResponse, playerResponse, initialData, transcriptJson } from './demo-data.mjs';
 
 /* ---------------- API de IA simulada ---------------- */
 const sse = (text) => `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\ndata: [DONE]\n\n`;
@@ -91,6 +91,18 @@ function page({ kicker, title, lead, dark = false, shorts = false }) {
   </body></html>`;
 }
 
+/* Videos de ejemplo para la captura de la biblioteca. */
+const DAY = 86400000;
+const LIBRARY_DEMO = [
+  { videoId: 'libDemo0001', title: 'Finanzas personales: la regla 50/30/20 explicada', author: 'Dinero Claro', lengthSeconds: 845, thumb: 'Regla 50/30/20', days: 1, fav: true, tags: ['finanzas'], results: ['summary', 'flashcards', 'quiz'] },
+  { videoId: 'libDemo0002', title: 'Introducción a la fotosíntesis para estudiantes', author: 'Ciencia en 10 minutos', lengthSeconds: 612, thumb: 'Fotosíntesis', days: 2, tags: ['biología', 'examen'], results: ['notes', 'mindmap', 'flashcards'] },
+  { videoId: 'libDemo0003', title: 'Cómo dar una charla sin nervios: técnicas de oratoria', author: 'Habla Mejor', lengthSeconds: 1290, thumb: 'Oratoria sin nervios', days: 4, results: ['keypoints', 'steps'], chat: true },
+  { videoId: 'libDemo0004', title: 'Receta de pan casero con masa madre paso a paso', author: 'Cocina Simple', lengthSeconds: 1034, thumb: 'Pan de masa madre', days: 6, fav: true, results: ['steps', 'summary'] },
+  { videoId: 'libDemo0005', title: 'Historia de Roma en 20 minutos', author: 'Historia Visual', lengthSeconds: 1210, thumb: 'Historia de Roma', days: 9, tags: ['historia'], results: ['chapters', 'quiz', 'mindmap'] },
+  { videoId: 'libDemo0006', title: 'Productividad: el método de bloques de tiempo', author: 'Foco Diario', lengthSeconds: 498, thumb: 'Bloques de tiempo', days: 14, results: ['summary', 'quotes'], aiTranscript: true },
+  { videoId: 'libDemo0007', title: 'Estiramientos de 10 minutos para la espalda', author: 'Moverse Bien', lengthSeconds: 640, thumb: 'Espalda sana', days: 21, results: ['steps'], short: true },
+];
+
 const SCENES = {
   transcript: { kicker: `${ICON('transcript')} Transcripción`, title: 'La transcripción completa, <em>al lado del video</em>', lead: 'Busca palabras, haz clic en cualquier línea para saltar a ese momento y descárgala en TXT, SRT, VTT o Markdown.' },
   summary: { kicker: `${ICON('sparkles')} Resúmenes con IA`, title: 'Entiende un video de 15 minutos <em>en 30 segundos</em>', lead: 'Resúmenes, puntos clave, apuntes, quizzes y flashcards con tu propia API key, del proveedor de IA que prefieras.' },
@@ -117,7 +129,21 @@ await context.route('https://openrouter.ai/**', (route) => {
   const last = JSON.parse(route.request().postData()).messages.at(-1).content;
   return route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body: sse(pickResponse(last)) });
 });
-await context.route('https://i.ytimg.com/**', (route) => route.fulfill({ contentType: 'image/jpeg', body: fs.readFileSync(path.join(ROOT, 'scripts/assets/demo-thumb.jpg')) }));
+// Miniaturas: la del video de ejemplo y, para la biblioteca, miniaturas generadas de colores.
+const THUMB_COLORS = [['#0f766e', '#22d3ee'], ['#b45309', '#fbbf24'], ['#1d4ed8', '#818cf8'], ['#be123c', '#fb7185'], ['#4d7c0f', '#a3e635'], ['#6d28d9', '#f0abfc'], ['#0f172a', '#38bdf8']];
+await context.route('https://i.ytimg.com/**', (route) => {
+  const id = (route.request().url().match(/vi\/([^/]+)/) || [])[1] || '';
+  if (id === VIDEO_ID || !LIBRARY_DEMO.some((v) => v.videoId === id)) return route.fulfill({ contentType: 'image/jpeg', body: fs.readFileSync(path.join(ROOT, 'scripts/assets/demo-thumb.jpg')) });
+  const i = LIBRARY_DEMO.findIndex((v) => v.videoId === id);
+  const [a, b] = THUMB_COLORS[i % THUMB_COLORS.length];
+  const v = LIBRARY_DEMO[i];
+  const words = v.thumb.split(' ');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs>
+    <rect width="320" height="180" fill="url(#g)"/><circle cx="262" cy="46" r="70" fill="#fff" opacity=".12"/><circle cx="40" cy="170" r="60" fill="#000" opacity=".1"/>
+    <text x="22" y="${words.length > 2 ? 78 : 96}" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="30" fill="#fff">${words.slice(0, 2).join(' ')}</text>
+    ${words.length > 2 ? `<text x="22" y="114" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="30" fill="#fff">${words.slice(2).join(' ')}</text>` : ''}</svg>`;
+  return route.fulfill({ contentType: 'image/svg+xml', body: svg });
+});
 await context.route('https://www.youtube.com/**', (route) => {
   const url = route.request().url();
   if (url.includes('/youtubei/v1/get_transcript')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify(transcriptJson) });
@@ -144,7 +170,7 @@ try {
   await opts.reload();
   await opts.waitForSelector('.provider.active');
   await opts.emulateMedia({ colorScheme: 'light' });
-  await opts.screenshot({ path: path.join(SHOTS, '6-configuracion.png') });
+  await opts.screenshot({ path: path.join(SHOTS, '10-configuracion.png') });
 
   // Si Playwright puede interceptar el service worker se muestra OpenRouter; si no, la API local.
   await opts.evaluate(async () => {
@@ -224,8 +250,93 @@ try {
     await hideGrid(p);
   });
 
+  // Panel lateral de Chrome: se captura la página real del panel y se compone junto al video.
+  scene = 'summary';
+  const yt = await context.newPage();
+  await yt.goto(`https://www.youtube.com/watch?v=${VIDEO_ID}`);
+  await yt.waitForFunction(() => document.querySelector('#subme-now-host')?.shadowRoot.querySelector('.sn-seg'), null, { timeout: 15000 });
+  const tabId = await opts.evaluate(async () => {
+    for (const t of await chrome.tabs.query({})) {
+      try { const r = await chrome.tabs.sendMessage(t.id, { type: 'subme-remote', fn: 'whoami' }); if (r?.ok && r.value) return t.id; } catch { /* otra pestaña */ }
+    }
+    return null;
+  });
+  const sideP = await context.newPage();
+  await sideP.setViewportSize({ width: 400, height: 720 });
+  await sideP.goto(`chrome-extension://${extId}/src/sidepanel/sidepanel.html#tab=${tabId}`);
+  await sideP.waitForFunction(() => document.querySelector('#subme-now-host')?.shadowRoot.querySelector('.sn-seg'), null, { timeout: 15000 });
+  await sideP.locator('#subme-now-host [data-tab="ai"]').click();
+  await sideP.locator('#subme-now-host [data-action="flashcards"]').click();
+  await sideP.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-output .vw'), null, { timeout: 15000 });
+  await sideP.evaluate(() => { const r = document.querySelector('#subme-now-host').shadowRoot; for (const sel of ['[data-ref="actions"]', '.sn-free', '[data-ref="modelbar"]']) r.querySelector(sel).style.setProperty('display', 'none', 'important'); });
+  await sideP.waitForTimeout(500);
+  const sideShot = (await sideP.screenshot()).toString('base64');
+  await sideP.close();
+  await yt.close();
+  const comp = await context.newPage();
+  await comp.setViewportSize({ width: 1280, height: 800 });
+  await comp.setContent(`<!doctype html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet"><style>${css}
+    .browser { position: absolute; left: 64px; top: 330px; width: 700px; height: 430px; border-radius: 14px; background: #fff; box-shadow: 0 18px 50px rgba(60,30,140,.22); overflow: hidden; }
+    .browser .bar2 { height: 34px; background: #ecebf3; display: flex; align-items: center; gap: 7px; padding: 0 12px; }
+    .browser .bar2 i { width: 11px; height: 11px; border-radius: 50%; background: #d5d3e0; }
+    .browser .url { margin-left: 14px; flex: 1; height: 20px; border-radius: 10px; background: #fff; }
+    .browser .video { margin: 22px auto 0; width: 600px; }
+    .side { position: absolute; right: 56px; top: 40px; width: 400px; height: 720px; border-radius: 16px; overflow: hidden; box-shadow: 0 22px 60px rgba(60,30,140,.3); border: 1px solid #e2e0ee; background: #fff; }
+    .side img { display: block; width: 400px; height: 720px; }
+    .copy { position: absolute; left: 64px; top: 56px; width: 700px; }
+    </style></head><body>
+    <div class="copy"><div class="kicker">${ICON('sidebar')} Panel lateral de Chrome</div><h1>Tu asistente, <em>siempre a mano</em></h1><p class="lead">Ábrelo en el panel lateral del navegador: sigue al video de la pestaña y deja la página de YouTube libre.</p></div>
+    <div class="browser"><div class="bar2"><i></i><i></i><i></i><span class="url"></span></div><div class="video"><div class="play"></div><div class="vt">${TITLE}</div><div class="bar"></div></div></div>
+    <div class="side"><img src="data:image/png;base64,${sideShot}"></div></body></html>`);
+  await comp.evaluate(() => document.fonts.ready);
+  await comp.waitForTimeout(300);
+  await comp.screenshot({ path: path.join(SHOTS, '5-panel-lateral.png') });
+  await comp.close();
+
+  // Biblioteca: el video de ejemplo (ya guardado por las capturas anteriores) más otros videos.
+  const lib = await context.newPage();
+  await lib.setViewportSize({ width: 1280, height: 800 });
+  await lib.goto(`chrome-extension://${extId}/src/library/library.html`);
+  await lib.waitForFunction(() => window.SubmeHistory, null, { timeout: 10000 });
+  await lib.evaluate(({ demo, structured, responses, DAY }) => {
+    const now = Date.now();
+    const label = { summary: 'Resumen', flashcards: 'Flashcards', quiz: 'Cuestionario', notes: 'Apuntes de estudio', mindmap: 'Mapa mental', keypoints: 'Puntos clave', steps: 'Pasos / tutorial', chapters: 'Capítulos', quotes: 'Citas destacadas' };
+    const icon = { summary: 'summary', flashcards: 'flashcards', quiz: 'quiz', notes: 'notes', mindmap: 'mindmap', keypoints: 'target', steps: 'steps', chapters: 'chapters', quotes: 'quote' };
+    return Promise.all(demo.map((v, i) => {
+      const results = {};
+      for (const id of v.results) results[id] = { id, label: label[id], icon: icon[id], view: id === 'mindmap' ? 'mindmap' : 'structured', text: id === 'mindmap' ? responses.mindmap : structured[id] ? JSON.stringify(structured[id]) : responses.summary, at: now - v.days * DAY - i * 3600000, model: 'claude-opus-5-5' };
+      return SubmeHistory.put({
+        videoId: v.videoId, title: v.title, author: v.author, lengthSeconds: v.lengthSeconds, isShort: !!v.short,
+        createdAt: now - v.days * DAY, updatedAt: now - v.days * DAY, favorite: !!v.fav, tags: v.tags || [], results, viewStates: {},
+        chat: v.chat ? [{ role: 'user', content: '¿Cuál es el primer consejo?' }, { role: 'assistant', content: 'Respirar antes de empezar [01:20].' }] : [],
+        transcript: v.aiTranscript ? { source: 'ai', segments: [{ start: 0, text: 'Hola' }] } : null,
+      });
+    }));
+  }, { demo: LIBRARY_DEMO, structured: STRUCTURED, responses: RESPONSES, DAY });
+  await lib.evaluate(async () => {
+    await SubmeHistory.remove('demoShort001'); // el Short de ejemplo repite el mismo video
+    const r = await SubmeHistory.get('demoVideo01');
+    if (r) { r.tags = ['idiomas']; r.favorite = true; await SubmeHistory.put(r); }
+  });
+  await lib.reload();
+  await lib.locator('.vcard').nth(5).waitFor({ timeout: 10000 });
+  await lib.evaluate(() => document.fonts.ready);
+  await lib.waitForTimeout(600);
+  await lib.screenshot({ path: path.join(SHOTS, '4-biblioteca.png') });
+  await lib.fill('#q', 'constancia');
+  await lib.locator('.hit').first().waitFor({ timeout: 5000 });
+  await lib.waitForTimeout(300);
+  await lib.screenshot({ path: path.join(SHOTS, '8-busqueda.png') });
+  await lib.fill('#q', '');
+  await lib.waitForTimeout(300);
+  await lib.locator('#reviewBtn').click();
+  await lib.locator('.rv-card').click();
+  await lib.waitForTimeout(700);
+  await lib.screenshot({ path: path.join(SHOTS, '9-repaso.png') });
+  await lib.close();
+
   // Renombrar en orden
-  const order = { transcript: '1-transcripcion.png', summary: '2-resumen-ia.png', chapters: '3-mapa-mental.png', chat: '4-chat.png', shorts: '5-shorts.png' };
+  const order = { transcript: '1-transcripcion.png', summary: '2-resumen-ia.png', chapters: '3-mapa-mental.png', chat: '6-chat.png', shorts: '7-shorts.png' };
   for (const [from, to] of Object.entries(order)) fs.renameSync(path.join(SHOTS, `${from}.png`), path.join(SHOTS, to));
 
   // Imágenes promocionales

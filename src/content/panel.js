@@ -18,6 +18,8 @@
   <header class="sn-header" data-act="toggle">
     <div class="sn-brand"><span class="sn-logo">S</span>Subme Now <span class="sn-sub" data-ref="sub"></span></div>
     <div class="sn-header-actions">
+      <button class="sn-icon-btn" data-act="library" title="Biblioteca: todo lo que guardaste">${I('library')}</button>
+      <button class="sn-icon-btn" data-act="sidepanel" title="Abrir en el panel lateral de Chrome">${I('sidebar')}</button>
       <button class="sn-icon-btn" data-act="settings" title="Configuración">${I('settings')}</button>
       <button class="sn-icon-btn sn-chevron" data-act="toggle" title="Mostrar / ocultar">${I('chevronDown')}</button>
     </div>
@@ -29,7 +31,7 @@
     </div>
     <nav class="sn-tabs">
       <button class="sn-tab active" data-tab="transcript">${I('transcript')}Transcripción</button>
-      <button class="sn-tab" data-tab="ai">${I('sparkles')}IA</button>
+      <button class="sn-tab" data-tab="ai">${I('sparkles')}IA<span class="sn-badge" data-ref="aibadge" title="Resultados guardados de este video" hidden></span></button>
       <button class="sn-tab" data-tab="chat">${I('chat')}Chat</button>
     </nav>
     <div class="sn-modelbar" data-ref="modelbar" hidden>
@@ -77,6 +79,7 @@
         <textarea class="sn-textarea" data-ref="free" rows="1" placeholder="O pídele cualquier cosa sobre este video…"></textarea>
         <button class="sn-btn primary" data-act="free">Ejecutar</button>
       </div>
+      <div class="sn-saved" data-ref="saved" hidden></div>
       <div class="sn-output-wrap" data-ref="outwrap" hidden>
         <div class="sn-output-head">
           <span class="sn-output-title" data-ref="outtitle"></span>
@@ -161,6 +164,11 @@
       this.context = null;
       this.chat = [];
       this.viewStates = {};
+      this.resultMeta = new Map();
+      this.savedActions = new Map();
+      this.transcriptSaved = false;
+      this.historyPromise = Promise.resolve(null);
+      clearTimeout(this.vsTimer);
       this.viewCtl = null;
       this.currentAction = null;
       this.segEls = [];
@@ -206,7 +214,132 @@
       this.videoId = videoId;
       this.attachVideo();
       this.renderAll();
+      this.historyPromise = this.loadHistory();
       await this.fetchTranscript(null);
+    }
+
+    /* ---------- historial ---------- */
+
+    /** Restaura lo guardado de este video: resultados, chat y progreso de las vistas. */
+    async loadHistory() {
+      const token = this.loadToken;
+      let rec = null;
+      try { rec = (await chrome.runtime.sendMessage({ type: 'historyGet', videoId: this.videoId }))?.record || null; } catch { /* sin historial */ }
+      if (token !== this.loadToken || !rec) return rec;
+      for (const r of Object.values(rec.results || {})) {
+        if (!r?.id || !r.text || this.results.has(r.id)) continue;
+        this.results.set(r.id, r.text);
+        this.resultMeta.set(r.id, { at: r.at, model: r.model, provider: r.provider });
+        if (!this.findAction(r.id)) this.savedActions.set(r.id, { id: r.id, label: r.label || 'Pedido', icon: r.icon || 'sparkles', view: r.view || '', prompt: r.prompt || r.label || '' });
+      }
+      for (const [id, st] of Object.entries(rec.viewStates || {})) if (!this.viewStates[id]) this.viewStates[id] = st;
+      if (!this.chat.length && rec.chat?.length) this.chat = rec.chat.map((m) => ({ role: m.role, content: m.content }));
+      this.renderActions();
+      this.renderChat();
+      return rec;
+    }
+
+    /** Guarda un cambio en el historial local (no hace nada si el historial está desactivado). */
+    saveHistory(patch = {}) {
+      if (this.settings.historyEnabled === false || !this.videoId || !this.video) return;
+      const v = this.video;
+      const full = { ...patch, video: { title: v.title, author: v.author, channelId: v.channelId, lengthSeconds: v.lengthSeconds, isShort: this.isShort() } };
+      if (!this.transcriptSaved && this.segments.length) {
+        full.transcript = { segments: this.segments.map((x) => ({ start: x.start, text: x.text })), source: this.source, language: this.selectedLang };
+        this.transcriptSaved = true;
+      }
+      try { chrome.runtime.sendMessage({ type: 'historySave', videoId: this.videoId, patch: full }).catch(() => {}); } catch { /* extensión recargada */ }
+    }
+
+    /** Guarda el progreso de las vistas (tarjetas sabidas, respuestas del quiz, pasos hechos). */
+    persistViewStatesSoon() {
+      clearTimeout(this.vsTimer);
+      const id = this.videoId;
+      this.vsTimer = setTimeout(() => {
+        if (id !== this.videoId || !this.results.size) return;
+        const viewStates = {};
+        for (const [k, v] of Object.entries(this.viewStates || {})) if (this.results.has(k) && v && Object.keys(v).length) viewStates[k] = v;
+        if (Object.keys(viewStates).length) this.saveHistory({ viewStates: JSON.parse(JSON.stringify(viewStates)) });
+      }, 700);
+    }
+
+    isShort() {
+      return this.mode === 'shorts' || !!this.remoteShort;
+    }
+
+    savedNote(id) {
+      const m = this.resultMeta.get(id);
+      if (!m?.at) return '';
+      const d = new Date(m.at);
+      return `Guardado el ${d.toLocaleDateString()} a las ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${m.model ? ` · ${m.model}` : ''}. Usa ↻ para generarlo de nuevo.`;
+    }
+
+    /** Muestra una transcripción que no viene de YouTube (p. ej. generada con IA). */
+    applyTranscript(segments, source) {
+      const list = segments.map((x) => ({ start: Number(x.start) || 0, text: String(x.text || '') })).filter((x) => x.text);
+      list.forEach((x, i) => { x.end = list[i + 1] ? Math.min(list[i + 1].start, x.start + 20) : x.start + 4; });
+      this.segments = list;
+      this.languages = [];
+      this.selectedLang = '';
+      this.source = source;
+      this.context = null;
+      this.setStatus('');
+      this.renderLanguages();
+      this.renderSegments();
+      this.renderActions();
+    }
+
+    /** Videos sin subtítulos: Gemini mira el video y escribe la transcripción con marcas de tiempo. */
+    async transcribeWithAI() {
+      if (this.transcribing || !this.videoId) return;
+      if (!this.settings.providers?.gemini?.hasKey) {
+        this.setInfo('Para transcribir con IA necesitas una API key de Gemini (Google AI Studio).', { settingsBtn: true });
+        return;
+      }
+      const token = this.loadToken;
+      const total = Number(this.video?.lengthSeconds) || 0;
+      this.transcribing = true;
+      const show = (n, last) => {
+        const s = this.refs.status;
+        s.classList.remove('error');
+        s.hidden = false;
+        const pct = total && last ? Math.min(99, Math.round((last / total) * 100)) : 0;
+        s.innerHTML = `<div class="sn-info sn-transcribing"><span class="sn-spinner" style="display:inline-block;vertical-align:-2px;margin-right:6px"></span>Transcribiendo con IA…
+          <div class="sn-info-sub">${n ? `${n} frases${last ? ` · ${U.formatTime(last)}${total ? ` de ${U.formatTime(total)}` : ''}` : ''}` : 'Gemini está mirando el video. Puede tardar unos minutos en videos largos.'}</div>
+          ${total ? `<div class="sn-bar"><i style="width:${pct}%"></i></div>` : ''}
+          <div style="margin-top:8px"><button class="sn-btn" data-act="stoptranscribe">${I('stop')}Detener</button></div></div>`;
+      };
+      show(0, 0);
+      let pending = false;
+      this.transcribeStream = SN.ai.transcribe(this.videoId, (_d, full) => {
+        if (pending) return;
+        pending = true;
+        requestAnimationFrame(() => {
+          pending = false;
+          if (token !== this.loadToken || !this.transcribing) return;
+          const segs = U.parseTranscriptLines(full);
+          show(segs.length, segs.length ? segs[segs.length - 1].start : 0);
+        });
+      });
+      try {
+        const r = await this.transcribeStream.promise;
+        if (token !== this.loadToken) return;
+        if (r.aborted) { this.setInfo(this.noCaptionsMsg || 'Transcripción detenida.', { transcribe: true }); return; }
+        const segs = U.parseTranscriptLines(r.text);
+        if (!segs.length) throw new Error('La IA no devolvió una transcripción con marcas de tiempo. Prueba de nuevo o con otro modelo de Gemini.');
+        this.applyTranscript(segs, 'ai');
+        this.transcriptSaved = false;
+        this.saveHistory({});
+        this.toast(r.notice ? 'Transcripción incompleta: se alcanzó el límite de salida' : 'Transcripción lista y guardada');
+      } catch (e) {
+        if (token !== this.loadToken) return;
+        if (e.code === 'LOCKED') { this.refreshSettings(); this.refs.status.innerHTML = this.lockedHtml(e.message); this.refs.status.hidden = false; return; }
+        this.setStatus(e.message, true);
+        this.refs.status.insertAdjacentHTML('beforeend', ` <button class="sn-link" data-act="transcribe">Reintentar</button>`);
+      } finally {
+        this.transcribing = false;
+        this.transcribeStream = null;
+      }
     }
 
     async fetchTranscript(choice) {
@@ -229,7 +362,6 @@
         this.selectedLang = r.selected;
         this.source = r.source;
         this.context = null;
-        this.results.clear();
         this.setStatus('');
         this.renderLanguages();
         this.renderSegments();
@@ -237,8 +369,18 @@
         if (this.settings.autoSummary && this.hasKey() && !choice) this.runAction(P.ACTIONS[0]);
       } catch (e) {
         if (token !== this.loadToken) return;
-        if (e.code === 'NO_CAPTIONS') this.setInfo(e.message);
-        else this.setStatus(e.message, true, true, e.detail);
+        this.loading = false;
+        if (e.code === 'NO_CAPTIONS') {
+          this.noCaptionsMsg = e.message;
+          const rec = await this.historyPromise;
+          if (token !== this.loadToken) return;
+          if (rec?.transcript?.source === 'ai' && rec.transcript.segments?.length) {
+            this.applyTranscript(rec.transcript.segments, 'ai');
+            this.transcriptSaved = true;
+            return;
+          }
+          this.setInfo(e.message, { transcribe: true });
+        } else this.setStatus(e.message, true, true, e.detail);
         this.renderLanguages();
       } finally {
         if (token === this.loadToken) this.loading = false;
@@ -275,7 +417,6 @@
     /* ---------- configuración y tema ---------- */
 
     applySettings(s, initial = false) {
-      const prev = this.settings;
       this.settings = s;
       this.root.classList.toggle('compact', s.density === 'compact');
       // Color de acento de toda la interfaz (íconos, pestañas, botones, resaltados).
@@ -289,8 +430,6 @@
         this.switchTab(s.defaultTab || 'transcript');
         setTimeout(() => this.maybeStartTour(), 600);
       }
-      const sig = (x) => `${x.provider}|${x.providers?.[x.provider]?.model || ''}|${x.responseLanguage}`;
-      if (sig(prev) !== sig(s)) this.results.clear();
       this.shadow.querySelector('[data-act="ts"]').classList.toggle('on', !!s.showTimestamps);
       this.shadow.querySelector('[data-act="autoscroll"]').classList.toggle('on', !!s.autoScroll);
       this.renderProvider();
@@ -406,6 +545,8 @@
         this.fetchTranscript(choice);
       });
 
+      ['click', 'keyup'].forEach((t) => this.refs.output.addEventListener(t, () => this.persistViewStatesSoon()));
+
       this.refs.segments.addEventListener('wheel', () => { this.userScrollUntil = Date.now() + 4000; }, { passive: true });
       this.refs.segments.addEventListener('touchmove', () => { this.userScrollUntil = Date.now() + 4000; }, { passive: true });
 
@@ -486,7 +627,9 @@
         case 'free': {
           const text = this.refs.free.value.trim();
           if (!text) return;
-          this.runAction({ id: `free-${Date.now()}`, icon: 'sparkles', label: text.length > 50 ? `${text.slice(0, 50)}…` : text, prompt: text, noCache: true });
+          const action = { id: `free-${Date.now()}`, icon: 'sparkles', label: text.length > 50 ? `${text.slice(0, 50)}…` : text, prompt: text };
+          this.savedActions.set(action.id, action);
+          this.runAction(action);
           break;
         }
         case 'stop':
@@ -520,6 +663,20 @@
           this.currentAction = null;
           this.renderActions();
           break;
+        case 'transcribe':
+          this.transcribeWithAI();
+          break;
+        case 'stoptranscribe':
+          this.transcribeStream?.abort();
+          break;
+        case 'library':
+          try { chrome.runtime.sendMessage({ type: 'openLibrary', videoId: this.videoId }); } catch { this.toast('Recarga la página: la extensión se actualizó'); }
+          break;
+        case 'sidepanel':
+          try {
+            chrome.runtime.sendMessage({ type: 'openSidePanel' }).then((r) => { if (!r?.ok) this.toast(r?.error || 'No se pudo abrir el panel lateral'); }).catch(() => this.toast('Recarga la página: la extensión se actualizó'));
+          } catch { this.toast('Recarga la página: la extensión se actualizó'); }
+          break;
         case 'unlock':
           try { chrome.runtime.sendMessage({ type: 'openUnlock' }); } catch { this.toast('Recarga la página: la extensión se actualizó'); }
           break;
@@ -536,6 +693,7 @@
           this.abortAll();
           this.chat = [];
           this.renderChat();
+          this.saveHistory({ chat: [] });
           break;
         default:
       }
@@ -579,10 +737,15 @@
     }
 
     /** Aviso informativo (no es un error): p. ej. un video sin subtítulos. */
-    setInfo(msg) {
+    setInfo(msg, { transcribe = false, settingsBtn = false } = {}) {
       const s = this.refs.status;
       s.classList.remove('error');
-      s.innerHTML = `<div class="sn-info">${I('info')} ${U.escapeHtml(msg)}<div class="sn-info-sub">Prueba con otro video o activa los subtítulos automáticos si el video es tuyo.</div></div>`;
+      const sub = transcribe
+        ? 'Puedes generarla con IA: Gemini mira el video y escribe la transcripción con marcas de tiempo. Usa tu clave de Gemini, solo funciona con videos públicos y queda guardada para no pagarla dos veces.'
+        : settingsBtn ? 'Agrégala en la configuración de Subme Now (proveedor Gemini). Tiene un nivel gratuito.' : 'Prueba con otro video o activa los subtítulos automáticos si el video es tuyo.';
+      const btn = transcribe ? `<button class="sn-btn primary" data-act="transcribe">${I('mic')}Transcribir con IA</button>`
+        : settingsBtn ? `<button class="sn-btn primary" data-act="settings">${I('key')}Configurar Gemini</button>` : '';
+      s.innerHTML = `<div class="sn-info">${I('info')} ${U.escapeHtml(msg)}<div class="sn-info-sub">${sub}</div>${btn ? `<div style="margin-top:8px">${btn}</div>` : ''}</div>`;
       s.hidden = false;
     }
 
@@ -592,6 +755,11 @@
       let html = '';
       if (this.source === 'dom') {
         html += '<option value="">Transcripción de YouTube</option>';
+      }
+      if (this.source === 'ai') {
+        sel.innerHTML = '<option value="">Transcripción con IA</option>';
+        sel.selectedIndex = 0;
+        return;
       }
       if (this.languages.length) {
         html += this.languages.map((l) => `<option value="it:${U.escapeHtml(l.params)}">${U.escapeHtml(l.title)}</option>`).join('');
@@ -638,7 +806,7 @@
 
       if (this.segments.length) {
         const words = this.segments.reduce((n, s) => n + s.text.split(/\s+/).length, 0);
-        const src = { innertube: 'YouTube', timedtext: 'subtítulos', dom: 'panel de YouTube' }[this.source] || '';
+        const src = { innertube: 'YouTube', timedtext: 'subtítulos', dom: 'panel de YouTube', ai: 'transcripción con IA' }[this.source] || '';
         this.refs.meta.innerHTML = `<span>${q ? `${shown} coincidencias · ` : ''}${this.segments.length} segmentos · ${words.toLocaleString()} palabras · ~${Math.max(1, Math.round(words / 200))} min de lectura</span><span>${U.escapeHtml(src)}</span>`;
       }
       this.highlightCurrent(true);
@@ -760,7 +928,7 @@
     }
 
     findAction(id) {
-      return this.allActions().find((a) => a.id === id);
+      return this.allActions().find((a) => a.id === id) || this.savedActions?.get(id);
     }
 
     renderActions() {
@@ -773,6 +941,12 @@
         <button class="sn-action${this.currentAction?.id === a.id ? ' active' : ''}" data-action="${U.escapeHtml(a.id)}" title="${U.escapeHtml(hint(a))}">
           <span class="sn-action-label">${I(a.icon)}<span>${U.escapeHtml(a.label)}</span>${this.results.has(a.id) ? '<span class="sn-action-done">✓</span>' : ''}</span>
         </button>`).join('');
+      const extra = [...(this.savedActions?.values() || [])].filter((a) => this.results.has(a.id) && !P.ACTIONS.some((x) => x.id === a.id));
+      this.refs.saved.hidden = !extra.length;
+      this.refs.saved.innerHTML = extra.length ? `<span class="sn-saved-label">${I('history')}Pedidos guardados</span>${extra.map((a) => `<button class="sn-chip${this.currentAction?.id === a.id ? ' on' : ''}" data-action="${U.escapeHtml(a.id)}" title="${U.escapeHtml(a.prompt || a.label)}">${U.escapeHtml(a.label)}</button>`).join('')}` : '';
+      const n = this.results.size;
+      this.refs.aibadge.hidden = !n;
+      this.refs.aibadge.textContent = n ? String(n) : '';
     }
 
     abortAll() {
@@ -815,7 +989,7 @@
       requestAnimationFrame(() => this.refs.outwrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
 
       if (!force && !action.noCache && this.results.has(action.id)) {
-        this.renderResult(action, this.results.get(action.id));
+        this.renderResult(action, this.results.get(action.id), this.savedNote(action.id));
         return;
       }
 
@@ -852,9 +1026,15 @@
         );
         const r = await this.stream.promise.finally(() => { finished = true; });
         if (this.currentAction !== action) return;
+        if (r.text && !r.aborted) this.viewStates[action.id] = {}; // resultado nuevo: progreso desde cero
         this.renderResult(action, r.text, r.notice);
         this.lastOutput = r.text;
-        if (r.text && !r.aborted && !action.noCache) this.results.set(action.id, r.text);
+        if (r.text && !r.aborted && !action.noCache) {
+          this.results.set(action.id, r.text);
+          this.resultMeta.set(action.id, { at: Date.now(), model: r.model, provider: r.provider });
+          const builtin = P.ACTIONS.some((x) => x.id === action.id);
+          this.saveHistory({ result: { id: action.id, label: action.label, icon: action.icon, view: action.view || '', text: r.text, model: r.model, provider: r.provider, custom: !builtin, prompt: action.prompt } });
+        }
         this.renderActions();
       } catch (e) {
         if (this.currentAction === action) {
@@ -945,6 +1125,7 @@
     /** Atajos de teclado (chrome://extensions/shortcuts). */
     handleCommand(command) {
       if (!this.videoId) return;
+      if (this.sidePorts?.size) { this.sidePorts.forEach((p) => { try { p.postMessage({ type: 'command', command }); } catch { /* cerrado */ } }); return; }
       if (this.root.classList.contains('collapsed') && command !== 'toggle-panel') this.handleAct('toggle');
       if (command === 'toggle-panel') this.handleAct('toggle');
       if (command === 'run-summary') this.runAction(this.findAction('summary'));
@@ -1100,7 +1281,9 @@
 
     /** Clics en marcas de tiempo y "copiar código" dentro de una ventana. */
     wireSurface(el, toast) {
+      el.addEventListener('keyup', () => this.persistViewStatesSoon());
       el.addEventListener('click', (e) => {
+        this.persistViewStatesSoon();
         const ts = e.target.closest('a.sn-ts');
         if (ts) { e.preventDefault(); this.seek(Number(ts.dataset.t)); return; }
         const cc = e.target.closest('.sn-copy-code');
@@ -1233,6 +1416,29 @@
       port.onDisconnect.addListener(() => { this.timeListeners.delete(timeFn); this.chatSurfaces.delete(chatFn); });
     }
 
+    /** El panel lateral de Chrome toma el control: este panel se oculta mientras esté abierto. */
+    attachSidePort(port) {
+      this.sidePorts = this.sidePorts || new Set();
+      this.sidePorts.add(port);
+      this.host.style.display = 'none';
+      SN.windows?.closeAll();
+      const send = (m) => { try { port.postMessage(m); } catch { /* cerrado */ } };
+      let last = 0;
+      const timeFn = (t) => { const now = Date.now(); if (now - last < 250) return; last = now; send({ type: 'time', t }); };
+      this.timeListeners.add(timeFn);
+      this.attachVideo();
+      timeFn(this.videoEl?.currentTime || 0);
+      port.onMessage.addListener((m) => {
+        if (m?.type === 'seek') this.seek(Number(m.t));
+        if (m?.type === 'time?') { last = 0; timeFn(this.videoEl?.currentTime || 0); }
+      });
+      port.onDisconnect.addListener(() => {
+        this.timeListeners.delete(timeFn);
+        this.sidePorts.delete(port);
+        if (!this.sidePorts.size) this.host.style.display = '';
+      });
+    }
+
     /* ---------- chat ---------- */
 
     renderChat() {
@@ -1280,6 +1486,7 @@
         });
         const r = await this.stream.promise;
         reply.content = r.text || (r.aborted ? '_Respuesta detenida._' : '');
+        if (myToken === this.loadToken && r.text) this.saveHistory({ chat: this.chat.filter((m) => !m.error && m.content) });
       } catch (e) {
         reply.error = e.message;
         reply.locked = e.code === 'LOCKED';

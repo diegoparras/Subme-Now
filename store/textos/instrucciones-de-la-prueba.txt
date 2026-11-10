@@ -4,5 +4,8 @@ Cómo probar Subme Now:
 3. Pestañas "IA" y "Chat": requieren que el usuario configure su propia API key en la página de opciones. La extensión no incluye claves ni tiene servidores propios; las solicitudes van directamente del navegador al proveedor elegido.
 4. Varias acciones se muestran de forma gráfica e interactiva (mapa mental, flashcards, quiz, capítulos). El botón "Desacoplar" abre cualquier resultado, la transcripción o el chat en una ventana flotante redimensionable, y desde ahí en una ventana aparte del navegador.
 5. Cada resultado tiene "Escuchar" (lectura en voz alta con las voces del sistema) y "Exportar" (copiar con formato, Markdown, .docx o PDF, generados localmente).
-6. Atajos de teclado: Alt+Shift+S resumir, Alt+Shift+M mapa mental, Alt+Shift+Y mostrar u ocultar el panel, Alt+Shift+K chat.
-7. Opcional: en Opciones se puede cambiar el color de la interfaz y cifrar las claves con contraseña, secuencia de imágenes o patrón.
+6. Historial y biblioteca: los resultados, el chat y el progreso se guardan localmente. Al volver a abrir el mismo video se muestran sin consultar de nuevo a la IA. El botón con forma de libro del panel abre la Biblioteca: búsqueda en todo lo guardado (con el minuto del video), filtros, favoritos, etiquetas, repaso de tarjetas y exportación. El historial se puede desactivar o borrar desde la biblioteca o las opciones.
+7. Panel lateral: el botón con forma de panel (junto al libro) o el ícono de la extensión en la barra abren Subme Now en el panel lateral de Chrome, que sigue al video de la pestaña activa.
+8. Videos sin subtítulos: el panel ofrece "Transcribir con IA". Requiere una API key de Gemini configurada por el usuario; el video debe ser público.
+9. Atajos de teclado: Alt+Shift+S resumir, Alt+Shift+M mapa mental, Alt+Shift+Y mostrar u ocultar el panel, Alt+Shift+K chat.
+10. Opcional: en Opciones se puede cambiar el color de la interfaz (también cambia el logo) y cifrar las claves con contraseña, secuencia de imágenes o patrón.

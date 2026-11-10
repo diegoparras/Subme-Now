@@ -46,6 +46,19 @@ ESCUCHAR Y EXPORTAR
 • Copia con formato para pegar en tus documentos y apps de notas, envía notas a tu bóveda de notas en Markdown, o descarga en Markdown, documento de texto (.docx) o PDF.
 • Las marcas de tiempo exportadas son enlaces al minuto exacto del video.
 
+TU BIBLIOTECA
+• Todo lo que generas se guarda en tu navegador: al volver a un video ves tus resultados, tu chat y tu progreso al instante, sin volver a consultar a la IA.
+• Busca en todo lo guardado y llega al minuto exacto del video donde está cada coincidencia.
+• Filtra por canal, tipo y fecha, marca favoritos y organiza con etiquetas.
+• Repasa todas tus tarjetas de estudio juntas, con repetición espaciada.
+• Exporta tu biblioteca completa o haz un respaldo. El borrado automático es opcional.
+
+PANEL LATERAL
+Abre Subme Now en el panel lateral del navegador: sigue al video de la pestaña y deja la página libre.
+
+VIDEOS SIN SUBTÍTULOS
+Si un video público no tiene subtítulos, la IA puede escucharlo y escribir la transcripción con marcas de tiempo (requiere una API key compatible).
+
 ATAJOS DE TECLADO
 Resume, crea el mapa mental, abre el chat o muestra el panel sin tocar el mouse.
 
@@ -60,6 +73,7 @@ PRIVACIDAD Y SEGURIDAD
 • Tus claves se guardan solo en tu navegador y la página de YouTube no puede leerlas.
 • Opcionalmente, puedes cifrarlas con una contraseña, una secuencia de imágenes o un patrón.
 • La transcripción se envía a la IA solo cuando tú lo pides.
+• Tu historial se guarda solo en tu navegador y puedes borrarlo cuando quieras.
 • Código abierto: https://github.com/diegoparras/Subme-Now
 
 Subme Now no está afiliado a YouTube ni a Google.
@@ -104,6 +118,19 @@ LISTEN AND EXPORT
 • Copy with formatting into your documents and note apps, send notes to your Markdown vault, or download as Markdown, a text document (.docx) or PDF.
 • Exported timestamps link to the exact minute of the video.
 
+YOUR LIBRARY
+• Everything you generate is saved in your browser: come back to a video and your results, chat and progress are there instantly, without asking the AI again.
+• Search everything you saved and jump to the exact minute of each match.
+• Filter by channel, type and date, mark favorites and organize with tags.
+• Review all your flashcards together with spaced repetition.
+• Export your whole library or make a backup. Auto-delete is optional.
+
+SIDE PANEL
+Open Subme Now in the browser's side panel: it follows the video in the current tab and keeps the page clear.
+
+VIDEOS WITHOUT CAPTIONS
+If a public video has no captions, AI can listen to it and write the transcript with timestamps (requires a compatible API key).
+
 KEYBOARD SHORTCUTS
 Summarize, build the mind map, open the chat or show the panel without touching the mouse.
 
@@ -118,6 +145,7 @@ PRIVACY AND SECURITY
 • Your keys stay in your browser and the YouTube page cannot read them.
 • Optionally encrypt them with a password, an image sequence or a pattern.
 • The transcript is sent to the AI only when you ask.
+• Your history stays in your browser and you can delete it anytime.
 • Open source: https://github.com/diegoparras/Subme-Now
 
 Subme Now is not affiliated with YouTube or Google.
@@ -130,7 +158,7 @@ Subme Now is not affiliated with YouTube or Google.
 | Campo del dashboard | Archivo | Tamaño |
 |---|---|---|
 | Ícono de la tienda | `icons/icon128.png` | 128×128 |
-| Capturas de pantalla (hasta 5) | `store/screenshots/1-…` a `5-…` (la 6 es opcional) | 1280×800 |
+| Capturas de pantalla (hasta 5) | `store/screenshots/1-…` a `5-…` (de la 6 a la 10 son opcionales; no subas la 10, que muestra nombres de proveedores) | 1280×800 |
 | Mosaico promocional pequeño | `store/promo-small-440x280.png` | 440×280 |
 | Marquesina (opcional) | `store/marquee-1400x560.png` | 1400×560 |
 

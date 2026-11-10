@@ -22,6 +22,7 @@
     if (!cur) {
       if (panel?.host.isConnected) panel.unmount();
       if (panel) panel.videoId = null;
+      if (lastUrl !== location.href) notifySide(null);
       lastUrl = location.href;
       return;
     }
@@ -30,18 +31,42 @@
     if (location.href !== lastUrl || panel.videoId !== cur.id) {
       lastUrl = location.href;
       panel.loadVideo(cur.id);
+      notifySide(cur);
     }
     panel.attachVideo();
   }
 
-  // Atajos de teclado enviados por el service worker.
-  // Ventanas aparte (popout) que se conectan a esta pestaña.
+  /** Avisa al panel lateral de Chrome (si está abierto) que cambió el video de esta pestaña. */
+  function notifySide(cur) {
+    try { chrome.runtime.sendMessage({ type: 'subme-nav', video: cur }).catch(() => {}); } catch { /* extensión recargada */ }
+  }
+
+  // Ventanas aparte (popout) y el panel lateral de Chrome se conectan a esta pestaña.
   chrome.runtime.onConnect.addListener((port) => {
     if (port.name === 'subme-popout') panel?.attachPopoutPort(port);
+    if (port.name === 'subme-side') {
+      panel = panel || new SN.Panel();
+      panel.attachSidePort(port);
+    }
   });
 
-  chrome.runtime.onMessage.addListener((msg) => {
+  /** Pedidos del panel lateral: la transcripción se obtiene desde la página de YouTube. */
+  async function remote(msg) {
+    const T = SN.transcript;
+    if (msg.fn === 'whoami') return currentVideo();
+    if (msg.fn === 'getVideoInfo') return T.getVideoInfo(String(msg.args[0]));
+    if (msg.fn === 'loadTranscript') return T.loadTranscript(await T.getVideoInfo(String(msg.args[0])), msg.args[1] || null, msg.args[2] || {});
+    throw new Error('Pedido desconocido');
+  }
+
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    // Atajos de teclado enviados por el service worker.
     if (msg?.type === 'subme-command') panel?.handleCommand(msg.command);
+    if (msg?.type === 'subme-remote') {
+      remote(msg).then((value) => sendResponse({ ok: true, value }), (e) => sendResponse({ ok: false, error: e.message, code: e.code, detail: e.detail }));
+      return true;
+    }
+    return false;
   });
 
   document.addEventListener('yt-navigate-finish', () => setTimeout(tick, 50));

@@ -1,0 +1,1 @@
+Permite abrir Subme Now en el panel lateral de Chrome, como alternativa al panel que se integra en la página de YouTube. El panel lateral muestra la transcripción, las acciones de IA y el chat del video que el usuario está viendo en la pestaña activa. Solo se abre cuando el usuario lo pide (botón del panel o ícono de la extensión) y no accede a otros sitios.

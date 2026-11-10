@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subme Now</title>
+  <style>
+    :root { --bg: #fff; --fg: #0f0f12; --fg-2: #55565f; color-scheme: light dark; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #1b1b1f; --fg: #f1f1f4; --fg-2: #a9a9b5; } }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.5 "Roboto", "Segoe UI", system-ui, -apple-system, sans-serif; }
+    #empty { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 10px; height: 100vh; padding: 0 28px; box-sizing: border-box; }
+    #empty img { width: 56px; height: 56px; }
+    #empty h1 { font-size: 17px; margin: 4px 0 0; }
+    #empty p { margin: 0; color: var(--fg-2); max-width: 300px; }
+    #empty button { margin-top: 8px; border: 1px solid #8884; background: transparent; color: inherit; border-radius: 8px; padding: 7px 14px; font: inherit; cursor: pointer; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="empty" hidden>
+    <img data-logo src="../../icons/icon128.png" alt="">
+    <h1>Subme Now</h1>
+    <p id="emptyMsg">Abre un video o un Short de YouTube en esta ventana y aparecerá aquí su transcripción, las acciones de IA y el chat.</p>
+    <button type="button" id="openLibrary">Abrir la biblioteca</button>
+  </div>
+  <script src="../shared/utils.js"></script>
+  <script src="../shared/settings.js"></script>
+  <script src="../shared/icons.js"></script>
+  <script src="../shared/logo.js"></script>
+  <script src="../shared/prompts.js"></script>
+  <script src="../shared/markdown.js"></script>
+  <script src="../content/styles.js"></script>
+  <script src="../content/ai.js"></script>
+  <script src="../content/views.js"></script>
+  <script src="../content/mindmap.js"></script>
+  <script src="../content/export.js"></script>
+  <script src="../content/tts.js"></script>
+  <script src="../content/surfaces.js"></script>
+  <script src="../content/windows.js"></script>
+  <script src="../content/panel.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

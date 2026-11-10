@@ -38,10 +38,12 @@
 /* Color de acento elegido por el usuario (Configuración → Color de la interfaz) */
 :host([data-accent]) {
   --sn-accent: var(--sn-user-accent);
+  --sn-accent-2: color-mix(in srgb, var(--sn-user-accent) 60%, white);
   --sn-accent-soft: color-mix(in srgb, var(--sn-user-accent) 11%, transparent);
 }
 :host([data-accent][data-theme="dark"]) {
   --sn-accent: color-mix(in srgb, var(--sn-user-accent) 72%, white);
+  --sn-accent-2: var(--sn-user-accent);
   --sn-accent-soft: color-mix(in srgb, var(--sn-user-accent) 22%, transparent);
 }
 /* Modo flotante (YouTube Shorts) */
@@ -61,6 +63,7 @@
 .sn-output-title { display: inline-flex; align-items: center; gap: 7px; }
 .sn-output-title .sn-i { color: var(--sn-accent); }
 .sn-notice .sn-i, .sn-info .sn-i { color: var(--sn-accent); margin-right: 2px; }
+.sn-notice .sn-btn.primary .sn-i, .sn-info .sn-btn.primary .sn-i { color: #fff; }
 .sn-error .sn-i, .sn-status.error .sn-i { margin-right: 4px; }
 [hidden] { display: none !important; }
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -312,5 +315,24 @@ a.sn-ts:hover { text-decoration: underline; }
 }
 .sn-toast.show { opacity: .95; }
 .sn-wrap { position: relative; }
+
+/* Historial: resultados guardados */
+.sn-badge { min-width: 17px; height: 17px; padding: 0 5px; border-radius: 999px; background: var(--sn-accent); color: #fff; font-size: 10.5px; font-weight: 700; display: inline-grid; place-items: center; line-height: 1; }
+.sn-saved { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 2px 0 8px; }
+.sn-saved-label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--sn-fg-2); margin-right: 2px; }
+.sn-chip.on { border-color: var(--sn-accent); color: var(--sn-accent); background: var(--sn-accent-soft); }
+.sn-bar { height: 6px; border-radius: 999px; background: var(--sn-bg-3); overflow: hidden; margin-top: 8px; }
+.sn-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--sn-accent), var(--sn-accent-2)); transition: width .3s; }
+
+/* Panel lateral de Chrome */
+:host([data-mode="side"]) { margin: 0; height: 100vh; }
+:host([data-mode="side"]) .sn-wrap { height: 100%; }
+:host([data-mode="side"]) .sn-root { height: 100%; display: flex; flex-direction: column; border: 0; border-radius: 0; box-shadow: none; }
+:host([data-mode="side"]) .sn-body { flex: 1; min-height: 0; overflow-y: auto; }
+:host([data-mode="side"]) .sn-header { cursor: default; }
+:host([data-mode="side"]) .sn-chevron, :host([data-mode="side"]) [data-act="sidepanel"], :host([data-mode="side"]) [data-act^="detach"] { display: none; }
+:host([data-mode="side"]) .sn-segments { max-height: calc(100vh - 270px); }
+:host([data-mode="side"]) .sn-chat-log { max-height: calc(100vh - 330px); }
+:host([data-mode="side"]) .sn-output { max-height: none; }
 `;
 })();

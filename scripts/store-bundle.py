@@ -47,7 +47,8 @@ for s in (16, 32, 48, 128):
     put(f'2-Ficha/graficos/iconos-de-la-extension/icon{s}.png', src=f'icons/icon{s}.png')
 shots = sorted(pathlib.Path('store/screenshots').glob('*.png'))
 for p in shots:
-    folder = 'opcional' if p.name.startswith('6-') else 'capturas-de-pantalla'
+    # La tienda acepta hasta 5 capturas: las 1 a 5 son las recomendadas; el resto queda como opcional.
+    folder = 'capturas-de-pantalla' if re.match(r'[1-5]-', p.name) else 'opcional'
     put(f'2-Ficha/graficos/{folder}/{p.name}', src=p)
 put('2-Ficha/graficos/mosaicos-promocionales/mosaico-pequeno-440x280.png', src='store/promo-small-440x280.png')
 put('2-Ficha/graficos/mosaicos-promocionales/mosaico-con-desplazamiento-1400x560.png', src='store/marquee-1400x560.png')
