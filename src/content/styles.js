@@ -232,7 +232,7 @@ a.sn-ts:hover { text-decoration: underline; }
 /* Recorrido guiado */
 .sn-tour { position: absolute; inset: 0; z-index: 30; background: rgba(10, 10, 20, .35); border-radius: var(--sn-radius); }
 .sn-tour-target { position: relative; z-index: 31; box-shadow: 0 0 0 3px var(--sn-accent), 0 0 0 9999px rgba(0,0,0,0); border-radius: 10px; background: var(--sn-bg); }
-.sn-tour-card { position: absolute; left: 12px; right: 12px; z-index: 32; background: var(--sn-bg); border: 1px solid var(--sn-border); border-radius: 14px; padding: 14px 16px 12px; box-shadow: 0 16px 40px rgba(0,0,0,.25); animation: sn-fade .2s ease; }
+.sn-tour-card { position: absolute; left: 12px; right: 12px; z-index: 33; background: var(--sn-bg); border: 1px solid var(--sn-border); border-radius: 14px; padding: 14px 16px 12px; box-shadow: 0 16px 40px rgba(0,0,0,.25); animation: sn-fade .2s ease; }
 .sn-tour-card b { font-size: 15px; }
 .sn-tour-card p { margin: 4px 0 10px; color: var(--sn-fg-2); }
 .sn-tour-step { font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--sn-accent); text-transform: uppercase; margin-bottom: 2px; }

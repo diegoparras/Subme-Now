@@ -700,6 +700,25 @@ try {
   await page.locator('#subme-now-host .sn-tour-card').waitFor({ timeout: 10000 });
   check('Recorrido guiado: aparece la primera vez', (await page.locator('#subme-now-host .sn-tour-step').textContent()).includes('1 de 3'));
   await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'v15-tour.png'), clip: { x: 600, y: 0, width: 680, height: 720 } });
+  // Si el panel crece mientras está el recorrido (p. ej. carga la miniatura del video), la tarjeta se reubica y su botón sigue accesible.
+  await page.evaluate(() => {
+    const sh = document.querySelector('#subme-now-host').shadowRoot;
+    const spacer = document.createElement('div');
+    spacer.className = 'test-spacer';
+    spacer.style.height = '140px';
+    sh.querySelector('.sn-tabs').before(spacer);
+  });
+  await page.waitForTimeout(300);
+  const tourBtnFree = await page.evaluate(() => {
+    const sh = document.querySelector('#subme-now-host').shadowRoot;
+    const b = sh.querySelector('[data-tour="next"]').getBoundingClientRect();
+    const hit = sh.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    const card = sh.querySelector('.sn-tour-card').getBoundingClientRect();
+    const tabs = sh.querySelector('.sn-tabs').getBoundingClientRect();
+    return hit?.closest?.('[data-tour="next"]') && (card.top >= tabs.bottom || card.bottom <= tabs.top);
+  });
+  check('Recorrido guiado: la tarjeta no queda tapada si el panel cambia de alto', !!tourBtnFree);
+  await page.evaluate(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.test-spacer').remove());
   for (let k = 0; k < 3; k++) await page.locator('#subme-now-host [data-tour="next"]').click();
   await page.waitForTimeout(300);
   const tourDone = await opts.evaluate(async () => (await chrome.storage.local.get('settings')).settings.onboardingDone);
