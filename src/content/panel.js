@@ -1228,30 +1228,53 @@
       const wrap = this.shadow.querySelector('.sn-wrap');
       const layer = document.createElement('div');
       layer.className = 'sn-tour';
-      wrap.appendChild(layer);
+      // La tarjeta va fuera de la capa oscura para quedar siempre por encima del elemento resaltado.
+      const card = document.createElement('div');
+      card.className = 'sn-tour-card';
+      card.setAttribute('role', 'dialog');
+      wrap.append(layer, card);
       let i = 0;
-      const finish = () => { layer.remove(); this.shadow.querySelectorAll('.sn-tour-target').forEach((e) => e.classList.remove('sn-tour-target')); this.updateSettings({ onboardingDone: true }); this.switchTab(this.settings.defaultTab || 'transcript'); };
+      let target = null;
+      // El panel cambia de alto mientras carga (miniatura del video, historial…): la tarjeta se reubica.
+      const place = () => {
+        if (!target?.isConnected) return;
+        const wr = wrap.getBoundingClientRect();
+        const tr = target.getBoundingClientRect();
+        const h = card.offsetHeight;
+        const below = tr.bottom - wr.top + 10;
+        const above = tr.top - wr.top - h - 10;
+        card.style.top = `${Math.round(below + h > wr.height && above >= 0 ? above : below)}px`;
+      };
+      const ro = new ResizeObserver(() => place());
+      ro.observe(this.root);
+      const finish = () => {
+        ro.disconnect();
+        layer.remove();
+        card.remove();
+        this.shadow.querySelectorAll('.sn-tour-target').forEach((e) => e.classList.remove('sn-tour-target'));
+        this.updateSettings({ onboardingDone: true });
+        this.switchTab(this.settings.defaultTab || 'transcript');
+      };
       const show = () => {
         const st = steps[i];
         this.switchTab(st.tab);
         this.shadow.querySelectorAll('.sn-tour-target').forEach((e) => e.classList.remove('sn-tour-target'));
-        const target = this.shadow.querySelector(st.sel);
+        target = this.shadow.querySelector(st.sel);
         target?.classList.add('sn-tour-target');
-        const wr = wrap.getBoundingClientRect();
-        const tr = target ? target.getBoundingClientRect() : wr;
-        layer.innerHTML = `<div class="sn-tour-card" role="dialog" style="top:${Math.round(tr.bottom - wr.top + 10)}px">
-            <div class="sn-tour-step">${i + 1} de ${steps.length}</div>
+        card.innerHTML = `<div class="sn-tour-step">${i + 1} de ${steps.length}</div>
             <b>${st.title}</b><p>${st.text}</p>
-            <div class="sn-tour-actions"><button class="sn-link" data-tour="skip">Saltar</button><button class="sn-btn primary" data-tour="next">${i + 1 < steps.length ? 'Siguiente' : 'Empezar'}</button></div>
-          </div>`;
+            <div class="sn-tour-actions"><button class="sn-link" data-tour="skip">Saltar</button><button class="sn-btn primary" data-tour="next">${i + 1 < steps.length ? 'Siguiente' : 'Empezar'}</button></div>`;
+        place();
+        requestAnimationFrame(place);
       };
-      layer.addEventListener('click', (e) => {
+      card.addEventListener('click', (e) => {
         const b = e.target.closest('[data-tour]');
         if (!b) return;
         e.stopPropagation();
         if (b.dataset.tour === 'skip' || i + 1 >= steps.length) finish();
         else { i++; show(); }
       });
+      layer.addEventListener('click', (e) => e.stopPropagation());
       show();
     }
 
