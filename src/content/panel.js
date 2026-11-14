@@ -50,6 +50,7 @@
       <div class="sn-toolbar">
         <button class="sn-btn" data-act="ts" title="Mostrar u ocultar marcas de tiempo">${I('clock')}Tiempos</button>
         <button class="sn-btn" data-act="autoscroll" title="Seguir el video automáticamente">${I('follow')}Seguir</button>
+        <button class="sn-btn" data-act="dualsubs" title="Subtítulos dobles sobre el video: original y traducción">${I('subtitles')}Doble</button>
         <button class="sn-btn" data-act="copy" title="Copiar la transcripción">${I('copy')}Copiar</button>
         <button class="sn-btn" data-act="detachtr" title="Desacoplar la transcripción en una ventana">${I('detach')}Desacoplar</button>
         <div class="sn-dropdown">
@@ -64,9 +65,11 @@
           </div>
         </div>
       </div>
+      <div class="sn-dual" data-ref="dualbar" hidden>${I('subtitles')}<span>Traducción:</span><select class="sn-select sn-mini" data-ref="duallang" title="Idioma de la traducción"></select></div>
       <div class="sn-meta" data-ref="meta"></div>
       <div class="sn-status" data-ref="status"></div>
       <div class="sn-segments" data-ref="segments"></div>
+      <button class="sn-seg-ask" data-ref="segask" type="button" title="¿Qué quiso decir acá? (pregúntale al chat)" hidden>${I('help')}</button>
     </section>
 
     <section class="sn-pane" data-pane="ai" hidden>
@@ -74,6 +77,7 @@
         Para usar la IA agrega una API key de OpenRouter, OpenAI, Grok, Anthropic o Gemini.
         <div style="margin-top:8px"><button class="sn-btn primary" data-act="settings">Configurar API</button></div>
       </div>
+      <div class="sn-live" data-ref="live"></div>
       <div class="sn-grid" data-ref="actions"></div>
       <div class="sn-free">
         <textarea class="sn-textarea" data-ref="free" rows="1" placeholder="O pídele cualquier cosa sobre este video…"></textarea>
@@ -140,6 +144,14 @@
       this.root = this.shadow.querySelector('.sn-root');
       // Con la traducción automática la lista de idiomas pasa de cien: se le agrega un buscador.
       SN.combo?.enhance(this.refs.lang, { placeholder: 'Buscar idioma…' });
+      SN.combo?.enhance(this.refs.duallang, { placeholder: 'Buscar idioma…' });
+      this.live = SN.live?.create({
+        getVideo: () => this.videoEl,
+        accent: '',
+        lengthSeconds: () => Number(this.video?.lengthSeconds) || 0,
+        onStudyState: (st) => { this.viewStates.study = st; this.persistViewStatesSoon(); this.renderLive(); },
+        onSkipped: () => { this.skippedCount = (this.skippedCount || 0) + 1; },
+      });
 
       this.settings = SubmeSettings.DEFAULT_SETTINGS;
       this.timeListeners = new Set();
@@ -170,6 +182,10 @@
       this.savedActions = new Map();
       this.transcriptSaved = false;
       this.historyPromise = Promise.resolve(null);
+      this.live?.destroy();
+      this.studyOn = false;
+      this.dualKey = '';
+      this.dualToken = (this.dualToken || 0) + 1;
       clearTimeout(this.vsTimer);
       this.viewCtl = null;
       this.currentAction = null;
@@ -232,12 +248,13 @@
         if (!r?.id || !r.text || this.results.has(r.id)) continue;
         this.results.set(r.id, r.text);
         this.resultMeta.set(r.id, { at: r.at, model: r.model, provider: r.provider });
-        if (!this.findAction(r.id)) this.savedActions.set(r.id, { id: r.id, label: r.label || 'Pedido', icon: r.icon || 'sparkles', view: r.view || '', prompt: r.prompt || r.label || '' });
+        if (!this.findAction(r.id) && !r.id.startsWith('subs-')) this.savedActions.set(r.id, { id: r.id, label: r.label || 'Pedido', icon: r.icon || 'sparkles', view: r.view || '', prompt: r.prompt || r.label || '' });
       }
       for (const [id, st] of Object.entries(rec.viewStates || {})) if (!this.viewStates[id]) this.viewStates[id] = st;
       if (!this.chat.length && rec.chat?.length) this.chat = rec.chat.map((m) => ({ role: m.role, content: m.content }));
       this.renderActions();
       this.renderChat();
+      this.applyLive();
       return rec;
     }
 
@@ -289,6 +306,8 @@
       this.renderLanguages();
       this.renderSegments();
       this.renderActions();
+      this.dualKey = '';
+      this.applyLive();
     }
 
     /** Videos sin subtítulos: Gemini mira el video y escribe la transcripción con marcas de tiempo. */
@@ -368,6 +387,8 @@
         this.renderLanguages();
         this.renderSegments();
         this.renderActions();
+        this.dualKey = '';
+        this.applyLive();
         if (this.settings.autoSummary && this.hasKey() && !choice) this.runAction(P.ACTIONS[0]);
       } catch (e) {
         if (token !== this.loadToken) return;
@@ -427,6 +448,7 @@
       if (accent) { this.host.setAttribute('data-accent', ''); this.host.style.setProperty('--sn-user-accent', accent); }
       else { this.host.removeAttribute('data-accent'); this.host.style.removeProperty('--sn-user-accent'); }
       SN.windows?.all().forEach((w) => w.setTheme(this.theme()));
+      this.live?.setAccent(accent);
       if (initial) {
         this.applyCollapsed();
         this.switchTab(s.defaultTab || 'transcript');
@@ -434,9 +456,11 @@
       }
       this.shadow.querySelector('[data-act="ts"]').classList.toggle('on', !!s.showTimestamps);
       this.shadow.querySelector('[data-act="autoscroll"]').classList.toggle('on', !!s.autoScroll);
+      this.shadow.querySelector('[data-act="dualsubs"]').classList.toggle('on', !!s.dualSubs);
       this.renderProvider();
       this.renderActions();
       if (this.segments.length) this.renderSegments();
+      this.applyLive();
     }
 
     collapseKey() {
@@ -516,6 +540,9 @@
         const ex = e.target.closest('[data-export]');
         if (ex) { this.refs.exportmenu.hidden = true; this.exportResult(ex.dataset.export); return; }
 
+        const live = e.target.closest('[data-live]');
+        if (live) { e.stopPropagation(); this.handleLive(live.dataset.live, live.dataset.liveOp || 'main'); return; }
+
         const action = e.target.closest('[data-action]');
         if (action) { this.runAction(this.findAction(action.dataset.action)); return; }
 
@@ -548,6 +575,20 @@
       });
 
       ['click', 'keyup'].forEach((t) => this.refs.output.addEventListener(t, () => this.persistViewStatesSoon()));
+
+      // "¿Qué quiso decir acá?": un botón que aparece sobre la línea bajo el mouse.
+      this.refs.segments.addEventListener('mouseover', (e) => {
+        const seg = e.target.closest('.sn-seg');
+        if (!seg) return;
+        const ask = this.refs.segask;
+        ask.dataset.i = seg.dataset.i;
+        ask.style.top = `${seg.offsetTop - this.refs.segments.scrollTop + 4}px`;
+        ask.hidden = false;
+      });
+      this.refs.segments.addEventListener('scroll', () => { this.refs.segask.hidden = true; }, { passive: true });
+      this.refs.segments.addEventListener('mouseleave', (e) => { if (!this.refs.segask.contains(e.relatedTarget)) this.refs.segask.hidden = true; });
+      this.refs.segask.addEventListener('click', (e) => { e.stopPropagation(); this.explainMoment(Number(this.refs.segask.dataset.i)); });
+      this.refs.duallang.addEventListener('change', () => this.updateSettings({ dualLang: this.refs.duallang.value }));
 
       this.refs.segments.addEventListener('wheel', () => { this.userScrollUntil = Date.now() + 4000; }, { passive: true });
       this.refs.segments.addEventListener('touchmove', () => { this.userScrollUntil = Date.now() + 4000; }, { passive: true });
@@ -664,6 +705,11 @@
           this.refs.outwrap.hidden = true;
           this.currentAction = null;
           this.renderActions();
+          break;
+        case 'dualsubs':
+          this.patchSettings({ dualSubs: !this.settings.dualSubs });
+          this.shadow.querySelector('[data-act="dualsubs"]').classList.toggle('on', !!this.settings.dualSubs);
+          this.applyLive();
           break;
         case 'transcribe':
           this.transcribeWithAI();
@@ -817,6 +863,7 @@
     highlightCurrent(force = false) {
       if (!this.videoEl) return;
       const t = this.videoEl.currentTime;
+      this.live?.tick(t);
       this.viewCtl?.onTime?.(t);
       this.timeListeners?.forEach((fn) => fn(t));
       if (!this.segments.length) return;
@@ -930,7 +977,7 @@
     }
 
     findAction(id) {
-      return this.allActions().find((a) => a.id === id) || this.savedActions?.get(id);
+      return this.allActions().find((a) => a.id === id) || P.MODES[id] || this.savedActions?.get(id);
     }
 
     renderActions() {
@@ -943,10 +990,10 @@
         <button class="sn-action${this.currentAction?.id === a.id ? ' active' : ''}" data-action="${U.escapeHtml(a.id)}" title="${U.escapeHtml(hint(a))}">
           <span class="sn-action-label">${I(a.icon)}<span>${U.escapeHtml(a.label)}</span>${this.results.has(a.id) ? '<span class="sn-action-done">✓</span>' : ''}</span>
         </button>`).join('');
-      const extra = [...(this.savedActions?.values() || [])].filter((a) => this.results.has(a.id) && !P.ACTIONS.some((x) => x.id === a.id));
+      const extra = [...(this.savedActions?.values() || [])].filter((a) => this.results.has(a.id) && !P.ACTIONS.some((x) => x.id === a.id) && !P.MODES[a.id] && !a.id.startsWith('subs-'));
       this.refs.saved.hidden = !extra.length;
       this.refs.saved.innerHTML = extra.length ? `<span class="sn-saved-label">${I('history')}Pedidos guardados</span>${extra.map((a) => `<button class="sn-chip${this.currentAction?.id === a.id ? ' on' : ''}" data-action="${U.escapeHtml(a.id)}" title="${U.escapeHtml(a.prompt || a.label)}">${U.escapeHtml(a.label)}</button>`).join('')}` : '';
-      const n = this.results.size;
+      const n = [...this.results.keys()].filter((k) => !k.startsWith('subs-')).length;
       this.refs.aibadge.hidden = !n;
       this.refs.aibadge.textContent = n ? String(n) : '';
     }
@@ -985,6 +1032,7 @@
       this.abortAll();
       this.currentAction = action;
       this.renderActions();
+      this.renderLive();
       const out = this.refs.output;
       this.refs.outwrap.hidden = false;
       this.refs.outtitle.innerHTML = `${I(action.icon || 'sparkles')}<span>${U.escapeHtml(action.label)}</span>`;
@@ -1034,10 +1082,15 @@
         if (r.text && !r.aborted && !action.noCache) {
           this.results.set(action.id, r.text);
           this.resultMeta.set(action.id, { at: Date.now(), model: r.model, provider: r.provider });
-          const builtin = P.ACTIONS.some((x) => x.id === action.id);
+          const builtin = P.ACTIONS.some((x) => x.id === action.id) || !!P.MODES[action.id];
           this.saveHistory({ result: { id: action.id, label: action.label, icon: action.icon, view: action.view || '', text: r.text, model: r.model, provider: r.provider, custom: !builtin, prompt: action.prompt } });
         }
         this.renderActions();
+        if (action.mode && r.text && !r.aborted) {
+          if (action.id === 'study') this.studyOn = true;
+          if (action.id === 'skip' && this.settings.autoSkip === false) this.patchSettings({ autoSkip: true });
+          this.applyLive();
+        }
       } catch (e) {
         if (this.currentAction === action) {
           if (e.code === 'LOCKED') this.refreshSettings();
@@ -1046,6 +1099,7 @@
         }
       } finally {
         if (this.currentAction === action) stopBtn.hidden = true;
+        this.renderLive();
       }
     }
 
@@ -1144,7 +1198,7 @@
       if (action.view === 'structured') {
         this.viewStates = this.viewStates || {};
         const state = (this.viewStates[action.id] = this.viewStates[action.id] || {});
-        const r = SN.views.render(out, action.id, text, { video: this.video, state, toast: (m) => this.toast(m), accent: this.accent || '#6d4aff' });
+        const r = SN.views.render(out, action.id, text, { video: this.video, state, toast: (m) => this.toast(m), accent: this.accent || '#6d4aff', lang: this.speechLang(), rate: this.settings.ttsRate });
         if (r.ok) {
           this.viewCtl = r.controller;
           if (note) out.insertAdjacentHTML('beforeend', note);
@@ -1321,7 +1375,7 @@
       if (action.view === 'structured') {
         this.viewStates = this.viewStates || {};
         const state = (this.viewStates[action.id] = this.viewStates[action.id] || {});
-        const r = SN.views.render(container, action.id, text, { video: this.video, state, toast, accent: this.accent || '#6d4aff' });
+        const r = SN.views.render(container, action.id, text, { video: this.video, state, toast, accent: this.accent || '#6d4aff', lang: this.speechLang(), rate: this.settings.ttsRate });
         if (r.ok) {
           const fn = r.controller?.onTime;
           if (fn) { this.timeListeners.add(fn); fn(this.videoEl?.currentTime || 0); }
@@ -1456,12 +1510,180 @@
       port.onMessage.addListener((m) => {
         if (m?.type === 'seek') this.seek(Number(m.t));
         if (m?.type === 'time?') { last = 0; timeFn(this.videoEl?.currentTime || 0); }
+        if (m?.type === 'live' && m.state) { this.remoteLiveState = m.state; this.pushLive(m.state); }
       });
       port.onDisconnect.addListener(() => {
         this.timeListeners.delete(timeFn);
         this.sidePorts.delete(port);
-        if (!this.sidePorts.size) this.host.style.display = '';
+        if (!this.sidePorts.size) { this.host.style.display = ''; this.remoteLiveState = null; this.applyLive(); }
       });
+    }
+
+    /* ---------- funciones en vivo ---------- */
+
+    speechLang() {
+      return this.settings.responseLanguage === 'video' ? (document.documentElement.lang || 'es') : this.settings.responseLanguage;
+    }
+
+    liveState() {
+      if (this.sidePorts?.size && this.remoteLiveState) return this.remoteLiveState;
+      return {
+        skip: { text: this.results.get('skip') || '', on: this.settings.autoSkip !== false },
+        study: { text: this.results.get('study') || '', on: !!this.studyOn, state: this.viewStates.study || {} },
+        dual: { on: !!this.settings.dualSubs, lang: this.settings.dualLang || '' },
+      };
+    }
+
+    /** Aplica el estado de las funciones en vivo al reproductor (o al de la pestaña, desde el panel lateral). */
+    applyLive() {
+      if (!this.live || !this.videoId) return;
+      this.pushLive(this.liveState());
+      this.renderLive();
+    }
+
+    pushLive(st) {
+      const parse = (t) => (t ? SN.views.parse(t) : null);
+      this.live.setSkip(st.skip.text ? SN.views.skipSegments(parse(st.skip.text)) : [], st.skip.on);
+      if (st.study.state) this.viewStates.study = st.study.state;
+      this.live.setStudy(st.study.text ? SN.views.studyCheckpoints(parse(st.study.text)) : [], st.study.on, this.viewStates.study || {});
+      this.setDualSubs(st.dual.on, st.dual.lang);
+    }
+
+    /** Idiomas posibles para la traducción de los subtítulos dobles. */
+    dualLanguages() {
+      const yt = this.video?.translationLanguages || [];
+      if (yt.length && this.source !== 'ai') return yt.map((l) => [l.code, l.name]);
+      return Object.entries(P.LANGUAGES).filter(([c]) => c !== 'video').map(([c, n]) => [c, n.split(' (')[0].replace(/^./, (x) => x.toUpperCase())]);
+    }
+
+    defaultDualLang() {
+      const want = this.settings.dualLang || (this.settings.responseLanguage !== 'video' ? this.settings.responseLanguage : '') || 'es';
+      const langs = this.dualLanguages().map(([c]) => c);
+      const base = (this.selectedLanguageCode() || '').split('-')[0];
+      const pick = [want, 'es', 'en'].find((c) => langs.includes(c) && c !== base);
+      return pick || langs[0] || 'en';
+    }
+
+    selectedLanguageCode() {
+      const m = /^tt:(\d+):(.*)$/.exec(this.selectedLang || '');
+      if (m) return m[2] || this.video?.tracks?.[Number(m[1])]?.languageCode || '';
+      const cur = this.languages.find((l) => `it:${l.params}` === this.selectedLang);
+      return this.video?.tracks?.find((t) => t.name === cur?.title)?.languageCode || this.video?.tracks?.[0]?.languageCode || '';
+    }
+
+    /** Subtítulos dobles: traducción automática de YouTube (gratis) o, si no hay, traducción con IA guardada en el historial. */
+    async setDualSubs(on, lang) {
+      const bar = this.refs.dualbar;
+      bar.hidden = !on;
+      if (!on || !this.segments.length) { this.live.setDual({ on: false }); return; }
+      const langs = this.dualLanguages();
+      const code = langs.some(([c]) => c === lang) ? lang : this.defaultDualLang();
+      if (!this.refs.duallang.options.length || this.refs.duallang.dataset.sig !== `${this.videoId}|${langs.length}`) {
+        this.refs.duallang.innerHTML = langs.map(([c, n]) => `<option value="${U.escapeHtml(c)}">${U.escapeHtml(n)}</option>`).join('');
+        this.refs.duallang.dataset.sig = `${this.videoId}|${langs.length}`;
+      }
+      this.refs.duallang.value = code;
+      const key = `${this.videoId}|${this.selectedLang}|${this.source}|${code}`;
+      if (this.dualKey === key) { this.live.setDual({ on: true }); return; }
+      this.dualKey = key;
+      const token = ++this.dualToken;
+      this.live.setDual({ on: true, orig: this.segments, tr: [], status: 'Preparando la traducción…' });
+      try {
+        const tr = await this.translateSegments(code, (status) => { if (token === this.dualToken) this.live.setDual({ status }); });
+        if (token !== this.dualToken) return;
+        this.live.setDual({ on: true, orig: this.segments, tr, status: '' });
+      } catch (e) {
+        if (token !== this.dualToken) return;
+        this.dualKey = '';
+        this.live.setDual({ on: true, orig: this.segments, tr: [], status: e.message });
+      }
+    }
+
+    async translateSegments(code, progress) {
+      const info = this.video;
+      const m = /^tt:(\d+):/.exec(this.selectedLang || '');
+      let base = m ? Number(m[1]) : -1;
+      if (base < 0 && info?.tracks?.length) {
+        const cur = this.languages.find((l) => `it:${l.params}` === this.selectedLang);
+        base = Math.max(0, info.tracks.findIndex((t) => t.name === cur?.title));
+      }
+      if (this.source !== 'ai' && info?.tracks?.[base]?.isTranslatable && (info.translationLanguages || []).some((l) => l.code === code)) {
+        try {
+          const r = await SN.transcript.loadTranscript(info, { kind: 'tt', trackIndex: base, tlang: code }, {});
+          if (r.segments?.length) return r.segments;
+        } catch { /* se intenta con IA */ }
+      }
+      // Traducción con IA (se guarda para no pagarla de nuevo).
+      const id = `subs-${code}`;
+      const saved = this.results.get(id);
+      const fromText = (text) => {
+        const map = new Map();
+        for (const line of String(text).split('\n')) { const x = /^\s*(\d+)\s*\|\s*(.+)$/.exec(line); if (x) map.set(Number(x[1]), x[2].trim()); }
+        return this.segments.map((sg, i) => ({ start: sg.start, end: sg.end, text: map.get(i) || '' })).filter((x) => x.text);
+      };
+      if (saved) return fromText(saved);
+      if (!this.hasKey()) throw new Error('Para traducir con IA configura una API key.');
+      const all = this.segments.map((sg, i) => ({ i, text: sg.text }));
+      const out = [];
+      for (let k = 0; k < all.length; k += 120) {
+        progress?.(`Traduciendo con IA… ${Math.round((k / all.length) * 100)}%`);
+        const h = SN.ai.stream({ system: 'Eres un traductor profesional de subtítulos.', messages: [{ role: 'user', content: P.translateLinesPrompt(all.slice(k, k + 120), code) }] });
+        const r = await h.promise;
+        out.push(r.text.trim());
+      }
+      const text = out.join('\n');
+      this.results.set(id, text);
+      const name = this.dualLanguages().find(([c]) => c === code)?.[1] || code;
+      this.saveHistory({ result: { id, label: `Subtítulos traducidos (${name})`, icon: 'subtitles', view: '', text, custom: false } });
+      return fromText(text);
+    }
+
+    /** Tarjetas de las funciones en vivo en la pestaña IA. */
+    renderLive() {
+      const box = this.refs.live;
+      if (!box || !P.MODES) return;
+      const st = this.liveState();
+      const busy = (id) => this.currentAction?.id === id && !this.shadow.querySelector('[data-act="stop"]')?.hidden;
+      const skipData = st.skip.text ? SN.views.skipSegments(SN.views.parse(st.skip.text)) : null;
+      const cps = st.study.text ? SN.views.studyCheckpoints(SN.views.parse(st.study.text)) : null;
+      const saved = skipData ? skipData.reduce((a, x) => a + x.end - x.start, 0) : 0;
+      const answered = (st.study.state?.done || []).length;
+      const card = (id, icon, title, sub, has, on) => `
+        <div class="sn-live-card${has && on ? ' on' : ''}">
+          <button class="sn-live-main" data-live="${id}" title="${has ? 'Ver el detalle' : 'Generar con IA'}">
+            <span class="sn-live-icon">${I(icon)}</span><span class="sn-live-text"><b>${title}</b><small>${sub}</small></span>
+          </button>
+          ${has ? `<button class="sn-switch${on ? ' on' : ''}" data-live="${id}" data-live-op="toggle" role="switch" aria-checked="${on}" title="${on ? 'Desactivar' : 'Activar'}"><i></i></button>` : `<span class="sn-live-go">${I('sparkles')}</span>`}
+        </div>`;
+      box.innerHTML = card('skip', 'scissors', 'Saltar lo que sobra',
+        busy('skip') ? 'Analizando el video…' : !skipData ? 'Patrocinios, intros y relleno' : skipData.length ? `${skipData.length} ${skipData.length === 1 ? 'tramo' : 'tramos'} · ahorras ${SN.views.fmt(saved)}` : 'Nada que saltar',
+        !!skipData && skipData.length > 0, st.skip.on)
+        + card('study', 'graduation', 'Modo estudio',
+          busy('study') ? 'Preparando preguntas…' : !cps ? 'Pausa el video y te pregunta' : `${cps.length} preguntas · ${answered} respondidas`,
+          !!cps && cps.length > 0, st.study.on);
+    }
+
+    handleLive(id, op) {
+      const mode = P.MODES[id];
+      if (!mode) return;
+      const has = this.results.has(id) || (this.remoteLiveState && this.liveState()[id].text);
+      if (op === 'toggle' && has) {
+        if (id === 'skip') this.patchSettings({ autoSkip: this.settings.autoSkip === false });
+        if (id === 'study') this.studyOn = !this.studyOn;
+        this.applyLive();
+        this.toast(id === 'skip' ? (this.settings.autoSkip !== false ? 'Saltar lo que sobra: activado' : 'Saltar lo que sobra: desactivado')
+          : this.studyOn ? 'Modo estudio activado: el video se pausará para preguntarte' : 'Modo estudio desactivado');
+        return;
+      }
+      this.runAction(mode);
+    }
+
+    /** "¿Qué quiso decir acá?": explica una línea de la transcripción en el chat. */
+    explainMoment(i) {
+      const seg = this.segments[i];
+      if (!seg) return;
+      const before = this.segments.slice(Math.max(0, i - 2), i).map((x) => x.text).join(' ');
+      this.sendChat(P.explainMomentPrompt(U.formatTime(seg.start), seg.text, before));
     }
 
     /* ---------- chat ---------- */

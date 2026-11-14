@@ -81,6 +81,26 @@ El autor insiste en que lo importante es hacerlo **todos los días** [00:21].`,
 
 /** Respuestas estructuradas (JSON) para las vistas gráficas. */
 export const STRUCTURED = {
+  '"segments"': { segments: [
+    { start: '00:00', end: '00:09', kind: 'intro', label: 'Saludo y presentación del canal' },
+    { start: '03:10', end: '03:55', kind: 'sponsor', label: 'Mención de una app de idiomas' },
+    { start: '11:20', end: '12:34', kind: 'outro', label: 'Despedida y pedido de suscripción' },
+  ] },
+  '"checkpoints"': { checkpoints: [
+    { from: '00:14', t: '01:10', q: '¿Qué gana a la intensidad según el video?', options: ['El talento', 'La constancia', 'La gramática', 'La suerte'], answer: 1, explanation: 'Treinta minutos diarios rinden más que cinco horas un domingo.' },
+    { from: '01:12', t: '04:00', q: '¿Cuál es el primer pilar del método?', options: ['Estudiar gramática', 'Exposición diaria al idioma', 'Viajar al país', 'Clases particulares'], answer: 1, explanation: 'Podcasts y series para acostumbrar el oído.' },
+    { from: '04:05', t: '08:20', q: '¿Cuántas palabras nuevas por día recomienda?', options: ['5', '20', '50', '100'], answer: 1, explanation: 'Veinte palabras por día con repetición espaciada.' },
+  ] },
+  '"lines"': { title: 'Seis meses para hablar otro idioma', hosts: ['Ana', 'Leo'], lines: [
+    { s: 0, text: 'Hoy tenemos un video que promete algo enorme: aprender cualquier idioma en seis meses. ¿Se puede?', t: '00:00' },
+    { s: 1, text: 'Según el autor, sí, pero con una condición: la constancia gana a la intensidad.', t: '00:14' },
+    { s: 0, text: 'O sea, mejor treinta minutos todos los días que cinco horas un domingo.', t: '00:21' },
+    { s: 1, text: 'Exacto. Y propone tres pilares. El primero es la exposición diaria: podcasts y series con subtítulos.', t: '01:12' },
+    { s: 0, text: 'Me gusta el segundo: hablar desde el día uno, aunque te equivoques.', t: '02:30' },
+    { s: 1, text: 'Y el tercero, repetición espaciada: veinte palabras por día. Más de tres mil seiscientas en seis meses.', t: '04:05' },
+    { s: 0, text: 'Lo que me voló la cabeza: con mil palabras frecuentes entendés cerca del ochenta por ciento.', t: '05:40' },
+    { s: 1, text: 'Así que el mensaje es claro: poquito, todos los días, y sin miedo a equivocarse.', t: '11:30' },
+  ] },
   '"tldr"': {
     tldr: 'Aprender un idioma en 6 meses es posible combinando exposición diaria, práctica oral desde el primer día y repetición espaciada del vocabulario.',
     sections: [
@@ -174,3 +194,31 @@ export const transcriptJson = {
   ] } } },
 };
 
+
+/** Traducción al inglés de LINES (para la captura de los subtítulos dobles). */
+export const LINES_EN = [
+  'Hi everyone, welcome back to the channel.',
+  "Today I'll tell you the exact method I used to learn three languages",
+  'and that anyone can apply in just six months.',
+  'The first thing you need to understand is that consistency beats intensity.',
+  "It's better to study thirty minutes every day than five hours on a Sunday.",
+  'The first pillar is daily exposure to the language.',
+  'Listen to podcasts, watch series with subtitles in the original language.',
+  'Your brain needs to get used to the sounds before it can produce them.',
+  'The second pillar is speaking from day one, even with mistakes.',
+  'Find a language exchange partner or an online teacher.',
+  'Fear of making mistakes is the biggest obstacle for most people.',
+  'The third pillar is spaced repetition for vocabulary.',
+  'With flashcard apps you can learn twenty new words a day.',
+  "In six months that's more than three thousand six hundred words.",
+  'The thousand most frequent words cover about eighty percent',
+  "of what you'll hear in everyday conversations.",
+  'A very common mistake is studying only grammar from books.',
+  'Grammar makes much more sense after you have listened a lot.',
+  'My daily routine was simple: fifteen minutes of flashcards in the morning,',
+  'a podcast on the way to work and a half-hour conversation at night.',
+  'Measure your progress every month by recording yourself speaking.',
+  'Listening to yourself after a few weeks is incredibly motivating.',
+  'To sum up: daily exposure, speaking from day one and spaced repetition.',
+  'If this helped, tell me in the comments which language you are learning.',
+];

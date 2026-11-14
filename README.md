@@ -29,6 +29,14 @@ Sin servidores intermedios: la transcripción sale directo de YouTube y las cons
 - Cualquier resultado, la transcripción o el chat se pueden **desacoplar** en una ventana flotante: se arrastra, se redimensiona desde los bordes, se minimiza y recuerda su posición.
 - Desde la ventana, **"Abrir en una ventana aparte"** la convierte en una ventana del navegador que puedes llevar a **otro monitor**; sigue controlando el video.
 
+### ⚡ Funciones en vivo sobre el video (v1.7)
+- **Saltar lo que sobra**: la IA detecta patrocinios, autopromoción, intros, despedidas y relleno; los pinta de colores en la barra de progreso de YouTube y los salta solos, con aviso y **Deshacer**.
+- **Modo estudio**: el video se pausa al terminar cada tema y te hace una pregunta sobre lo que acabas de ver. Si fallas, **Repasar** te lleva al inicio de esa parte.
+- **Subtítulos dobles**: el idioma original y la traducción, uno arriba del otro, sobre el video (también en pantalla completa). Usa la traducción automática de YouTube, que es gratis, o la IA si no está disponible (y la guarda).
+- **Podcast**: la IA convierte el video en una charla entre dos presentadores y la lee con dos voces distintas del sistema.
+- **"¿Qué quiso decir acá?"**: pasa el mouse sobre cualquier línea de la transcripción y pregúntale al chat por ese momento.
+- **Pregúntale a tu biblioteca**: un chat que busca en todo lo que guardaste (resúmenes, chats y transcripciones) y responde citando el video y el minuto.
+
 ### 📚 Historial y biblioteca (v1.6)
 - **Todo se guarda solo**: cada resultado, el chat y el progreso (tarjetas sabidas, respuestas del quiz, pasos hechos) quedan guardados por video. Al volver, los ves al instante **sin volver a pagarle a la IA** (con ↻ los regeneras).
 - **Biblioteca** (botón con forma de libro): todos tus videos con miniatura, canal, fecha y resultados.
@@ -138,6 +146,10 @@ YouTube (página)                         Service worker                  Provee
 
 **Historial** (`src/shared/history.js`): IndexedDB en el origen de la extensión. YouTube no tiene acceso: el panel guarda y lee a través del service worker; la biblioteca (`src/library/`) lo usa directamente.
 
+**Funciones en vivo** (`src/content/live.js`): una capa propia (Shadow DOM) dentro del reproductor de YouTube dibuja el aviso de salto, las preguntas del modo estudio y los subtítulos dobles, y las marcas en la barra de progreso. Desde el panel lateral, el estado se envía a la pestaña por el mismo puerto.
+
+**Pregúntale a tu biblioteca**: búsqueda local (TF-IDF sin acentos) sobre fragmentos de transcripciones y resultados guardados; solo los fragmentos más relevantes y un catálogo breve de tus videos se envían a la IA, que cita con el formato `[[V3 12:30]]`.
+
 **Panel lateral** (`src/sidepanel/`): reutiliza el mismo panel. La transcripción la obtiene la pestaña de YouTube (que es la que puede leerla) y el panel recibe el tiempo del video y le pide los saltos por un puerto.
 
 ### Estructura
@@ -161,6 +173,8 @@ src/
     transcript.js         # extracción de subtítulos
     ai.js                 # cliente de streaming y condensado de videos largos
     panel.js              # interfaz del panel
+    live.js               # funciones en vivo sobre el reproductor (saltar, modo estudio, subtítulos dobles)
+    combo.js              # desplegable con buscador
     views.js              # vistas gráficas (flashcards, quiz, capítulos…)
     windows.js            # ventanas flotantes desacoplables
     surfaces.js           # transcripción y chat reutilizables en ventanas
@@ -185,7 +199,7 @@ PRIVACY.md                # política de privacidad
 npm test
 ```
 
-Carga la extensión en Chromium, simula una página de YouTube y una API compatible con OpenAI, y verifica: carga de transcripción, cambio de idioma, búsqueda, salto en el video, descarga SRT, resumen con IA en streaming, marcas de tiempo clicables, cambio de modelo desde el panel, chat, Shorts, navegación SPA, historial y restauración sin llamar a la IA, biblioteca (búsqueda con minuto, filtros, favoritos, etiquetas, repaso, exportación y borrado automático), transcripción con IA, panel lateral, logo con el color de acento, que las API keys no sean accesibles desde YouTube y el flujo completo de protección con contraseña, imágenes y patrón. Requiere Playwright con Chromium instalado.
+Carga la extensión en Chromium, simula una página de YouTube y una API compatible con OpenAI, y verifica: carga de transcripción, cambio de idioma, búsqueda, salto en el video, descarga SRT, resumen con IA en streaming, marcas de tiempo clicables, cambio de modelo desde el panel, chat, Shorts, navegación SPA, historial y restauración sin llamar a la IA, funciones en vivo (saltar tramos, modo estudio, subtítulos dobles, podcast, "¿qué quiso decir acá?"), preguntarle a la biblioteca, biblioteca (búsqueda con minuto, filtros, favoritos, etiquetas, repaso, exportación y borrado automático), transcripción con IA, panel lateral, logo con el color de acento, que las API keys no sean accesibles desde YouTube y el flujo completo de protección con contraseña, imágenes y patrón. Requiere Playwright con Chromium instalado.
 
 ### Publicar en la Chrome Web Store
 

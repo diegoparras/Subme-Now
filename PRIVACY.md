@@ -1,6 +1,6 @@
 # Política de privacidad de Subme Now
 
-_Última actualización: 10 de noviembre de 2026_
+_Última actualización: 14 de noviembre de 2026_
 
 Subme Now es una extensión de navegador que muestra la transcripción de los videos de YouTube y permite procesarla con un servicio de inteligencia artificial elegido por el usuario. Esta política explica qué datos maneja y cómo.
 
@@ -22,6 +22,8 @@ Subme Now es una extensión de navegador que muestra la transcripción de los vi
 | Transcripción, título, canal y URL del video | Generar resúmenes, respuestas del chat y demás acciones | Se obtiene de YouTube y se envía al proveedor de IA elegido solo cuando usas una función de IA. |
 | Preguntas que escribes en el chat o en el prompt libre | Responderte | Se envían al proveedor de IA elegido. |
 | Historial: resultados de IA, conversaciones, progreso de estudio (tarjetas, quiz, pasos), favoritos, etiquetas y transcripciones de los videos en los que usaste la IA | Mostrarte de nuevo lo que ya generaste sin volver a consultar a la IA, y la biblioteca (búsqueda, repaso y exportación) | Base de datos local de tu navegador (IndexedDB de la extensión). No se sincroniza ni se envía a nadie. Se puede desactivar, borrar por antigüedad o borrar por completo desde la biblioteca. |
+| Fragmentos de tu biblioteca y una lista breve de tus videos guardados (solo si usas "Preguntar" en la biblioteca) | Responder tu pregunta sobre todo lo que guardaste | La búsqueda se hace en tu navegador; solo los fragmentos más relevantes y los títulos se envían al proveedor de IA elegido. |
+| Texto de la transcripción (solo si activas los subtítulos dobles y YouTube no ofrece traducción) | Traducir los subtítulos | Se envía al proveedor de IA elegido; la traducción queda guardada en tu historial. |
 | URL de un video sin subtítulos (solo si pulsas "Transcribir con IA") | Que Gemini transcriba el audio del video | Se envía a la API de Gemini de Google con tu propia API key. Google accede al video público de YouTube para transcribirlo. |
 
 **Lectura en voz alta:** usa las voces instaladas en tu navegador o sistema operativo. Algunas voces "en línea" que ofrece el navegador (por ejemplo, las de Google en Chrome) procesan el texto en los servidores de ese proveedor; las voces locales del sistema funcionan sin conexión. Puedes elegir la voz en el panel.

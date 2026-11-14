@@ -72,6 +72,18 @@
       if (act === 'toggle') return; // en el panel lateral no se colapsa
       super.handleAct(act);
     }
+
+    /** Las funciones en vivo corren en el reproductor de la pestaña: se le envía el estado. */
+    pushLive(st) {
+      try { port?.postMessage({ type: 'live', state: st }); } catch { /* pestaña cerrada */ }
+      const bar = this.refs.dualbar;
+      bar.hidden = !st.dual.on;
+      if (st.dual.on) {
+        const langs = this.dualLanguages();
+        this.refs.duallang.innerHTML = langs.map(([c, n]) => `<option value="${SubmeUtils.escapeHtml(c)}">${SubmeUtils.escapeHtml(n)}</option>`).join('');
+        this.refs.duallang.value = langs.some(([c]) => c === st.dual.lang) ? st.dual.lang : this.defaultDualLang();
+      }
+    }
   }
 
   function showEmpty(msg) {
@@ -116,6 +128,7 @@
         });
         port.onDisconnect.addListener(() => { port = null; });
       } catch { port = null; }
+      panel.applyLive();
     }
     panel.remoteShort = video.mode === 'shorts';
     if (panel.videoId !== video.id) {

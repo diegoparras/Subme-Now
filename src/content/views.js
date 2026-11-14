@@ -379,6 +379,159 @@
     },
   };
 
+  /* ---------- Podcast: dos voces leen la conversación ---------- */
+
+  /** Elige dos voces distintas para el idioma; si hay una sola, se diferencian por el tono. */
+  function podcastVoices(voices, lang) {
+    const base = String(lang || 'es').split('-')[0].toLowerCase();
+    const list = voices.filter((v) => v.lang.toLowerCase().startsWith(base));
+    const pool = list.length ? list : voices;
+    const local = pool.filter((v) => v.localService);
+    const pick = (local.length >= 2 ? local : pool);
+    const a = pick[0] || null;
+    const b = pick.find((v) => v !== a && v.name.split(' ')[0] !== a?.name.split(' ')[0]) || pick.find((v) => v !== a) || a;
+    return [{ voice: a, pitch: a === b ? 0.9 : 1 }, { voice: b, pitch: a === b ? 1.2 : 1 }];
+  }
+
+  V.podcast = {
+    valid: (d) => arr(d?.lines).filter((l) => l && l.text).length >= 2,
+    md: (d) => {
+      const hosts = arr(d.hosts).length >= 2 ? d.hosts : ['Presentador 1', 'Presentador 2'];
+      return `## ${d.title || 'Podcast'}\n\n${arr(d.lines).map((l) => `**${hosts[Number(l.s) ? 1 : 0]}:** ${l.text}${mdTs(l.t)}`).join('\n\n')}`;
+    },
+    render(el, d, ctx) {
+      const hosts = arr(d.hosts).length >= 2 ? d.hosts.slice(0, 2).map(String) : ['Ana', 'Leo'];
+      const lines = arr(d.lines).filter((l) => l && l.text);
+      const synth = globalThis.speechSynthesis;
+      const st = ctx.state;
+      let playing = false;
+      let idx = Math.min(st.i || 0, lines.length - 1);
+      let token = 0;
+      el.innerHTML = `
+        <div class="vw-pod-head">
+          <div class="vw-pod-cover">${I('headphones')}</div>
+          <div class="vw-pod-meta"><span class="vw-kicker">${I('mic')}Podcast</span><b>${esc(d.title || 'Episodio')}</b><span>${esc(hosts[0])} y ${esc(hosts[1])} · ${lines.length} intervenciones</span></div>
+        </div>
+        <div class="vw-pod-bar">
+          <button class="sn-btn primary vw-pod-play">${I('play')}Escuchar</button>
+          <button class="sn-icon-btn vw-pod-stop" title="Detener" disabled>${I('stop')}</button>
+          <div class="vw-pod-progress"><span></span></div>
+          <span class="vw-pod-count"></span>
+        </div>
+        ${synth ? '' : '<div class="sn-foot-note">Tu navegador no tiene lectura en voz alta.</div>'}
+        <div class="vw-pod-lines">${lines.map((l, i) => `<div class="vw-pod-line s${Number(l.s) ? 1 : 0}" data-i="${i}">
+            <span class="vw-pod-avatar">${esc(hosts[Number(l.s) ? 1 : 0].slice(0, 1).toUpperCase())}</span>
+            <div><b>${esc(hosts[Number(l.s) ? 1 : 0])}</b> ${chip(l.t)}<p>${esc(l.text)}</p></div>
+          </div>`).join('')}</div>`;
+      const playBtn = el.querySelector('.vw-pod-play');
+      const stopBtn = el.querySelector('.vw-pod-stop');
+      const bar = el.querySelector('.vw-pod-progress span');
+      const count = el.querySelector('.vw-pod-count');
+      const rows = [...el.querySelectorAll('.vw-pod-line')];
+      const mark = () => {
+        rows.forEach((r, i) => r.classList.toggle('on', playing && i === idx));
+        bar.style.width = `${lines.length ? ((idx + (playing ? 0.5 : 0)) / lines.length) * 100 : 0}%`;
+        count.textContent = `${idx + 1}/${lines.length}`;
+        playBtn.innerHTML = playing ? `${I('pause')}Pausar` : `${I('play')}${idx > 0 ? 'Continuar' : 'Escuchar'}`;
+        stopBtn.disabled = !playing && idx === 0;
+        st.i = idx;
+      };
+      const stop = (reset) => {
+        token++;
+        playing = false;
+        try { synth?.cancel(); } catch { /* sin voz */ }
+        if (reset) idx = 0;
+        mark();
+      };
+      const speak = async () => {
+        if (!synth) return;
+        SN.tts?.stop?.();
+        const my = ++token;
+        playing = true;
+        const voices = await (SN.tts?.getVoices?.() || Promise.resolve(synth.getVoices()));
+        const v = podcastVoices(voices, ctx.lang || document.documentElement.lang || 'es');
+        const next = () => {
+          if (my !== token) return;
+          if (idx >= lines.length) { playing = false; idx = 0; mark(); return; }
+          mark();
+          rows[idx].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          const l = lines[idx];
+          const u = new SpeechSynthesisUtterance(String(l.text));
+          const who = v[Number(l.s) ? 1 : 0];
+          if (who.voice) { u.voice = who.voice; u.lang = who.voice.lang; } else u.lang = ctx.lang || 'es';
+          u.pitch = who.pitch;
+          u.rate = Number(ctx.rate) || 1;
+          u.onend = () => { if (my === token) { idx++; next(); } };
+          u.onerror = (e) => { if (my === token && e.error !== 'interrupted' && e.error !== 'canceled') { idx++; next(); } };
+          synth.speak(u);
+        };
+        next();
+      };
+      playBtn.addEventListener('click', () => { if (playing) stop(false); else speak(); });
+      stopBtn.addEventListener('click', () => stop(true));
+      el.querySelector('.vw-pod-lines').addEventListener('click', (e) => {
+        if (e.target.closest('a')) return;
+        const r = e.target.closest('.vw-pod-line');
+        if (!r) return;
+        stop(false);
+        idx = Number(r.dataset.i);
+        speak();
+      });
+      // Si la vista desaparece (otro resultado, otra ventana), se corta la lectura.
+      const obs = new MutationObserver(() => { if (!el.isConnected) { stop(false); obs.disconnect(); } });
+      if (el.parentNode) obs.observe(el.getRootNode() === document ? document.body : el.getRootNode(), { childList: true, subtree: true });
+      mark();
+      return { stop: () => stop(false) };
+    },
+  };
+
+  /* ---------- Saltar lo que sobra ---------- */
+  const SKIP_KINDS = {
+    sponsor: { label: 'Patrocinio', color: '#00d26a' },
+    selfpromo: { label: 'Autopromoción', color: '#ffbb00' },
+    intro: { label: 'Introducción', color: '#00c4ff' },
+    outro: { label: 'Cierre', color: '#2f6bff' },
+    filler: { label: 'Relleno', color: '#b44dff' },
+    recap: { label: 'Repaso', color: '#ff7b54' },
+  };
+  const skipSegments = (d) => arr(d?.segments).map((x) => ({ start: toSec(x.start), end: toSec(x.end), kind: SKIP_KINDS[x.kind] ? x.kind : 'filler', label: String(x.label || '') }))
+    .filter((x) => x.start != null && x.end != null && x.end - x.start >= 2).sort((a, b) => a.start - b.start);
+
+  V.skip = {
+    valid: (d) => d && Array.isArray(d.segments),
+    md: (d) => {
+      const segs = skipSegments(d);
+      return segs.length ? `## Tramos para saltar\n\n${segs.map((x) => `- [${fmt(x.start)}] – ${fmt(x.end)} **${SKIP_KINDS[x.kind].label}**${x.label ? `: ${x.label}` : ''}`).join('\n')}` : 'No se encontraron tramos para saltar.';
+    },
+    render(el, d) {
+      const segs = skipSegments(d);
+      const total = segs.reduce((a, x) => a + (x.end - x.start), 0);
+      el.innerHTML = segs.length ? `
+        <div class="vw-hero"><span class="vw-kicker">${I('scissors')}Saltar lo que sobra</span><p>${segs.length} ${segs.length === 1 ? 'tramo' : 'tramos'} · ${fmt(total)} que te puedes ahorrar</p></div>
+        <div class="vw-skip-list">${segs.map((x) => `<div class="vw-skip-row"><span class="vw-skip-kind" style="--c:${SKIP_KINDS[x.kind].color}">${SKIP_KINDS[x.kind].label}</span>
+          <span class="vw-skip-label">${esc(x.label)}</span><span class="vw-skip-range">${chip(x.start)} – ${fmt(x.end)}</span></div>`).join('')}</div>
+        <div class="sn-foot-note">Los tramos se marcan en la barra de progreso del video y se saltan solos mientras "Saltar lo que sobra" esté activo.</div>`
+        : `<div class="vw-hero"><span class="vw-kicker">${I('check')}Nada que saltar</span><p>La IA no encontró patrocinios, autopromoción ni relleno en este video.</p></div>`;
+    },
+  };
+
+  /* ---------- Modo estudio ---------- */
+  const studyCheckpoints = (d) => arr(d?.checkpoints).filter((c) => c && c.q && arr(c.options).length >= 2 && toSec(c.t) != null)
+    .map((c) => ({ ...c, at: toSec(c.t), from: toSec(c.from) ?? 0 })).sort((a, b) => a.at - b.at);
+
+  V.study = {
+    valid: (d) => studyCheckpoints(d).length,
+    md: (d) => `## Modo estudio\n\n${studyCheckpoints(d).map((c, i) => `${i + 1}. **${c.q}** [${fmt(c.at)}]\n${arr(c.options).map((o, j) => `   ${'ABCD'[j]}) ${o}${j === Number(c.answer) ? ' ✓' : ''}`).join('\n')}`).join('\n\n')}`,
+    render(el, d, ctx) {
+      const cps = studyCheckpoints(d);
+      const done = new Set(arr(ctx.state.done));
+      const ok = new Set(arr(ctx.state.correct));
+      el.innerHTML = `<div class="vw-hero"><span class="vw-kicker">${I('graduation')}Modo estudio</span><p>${cps.length} preguntas a lo largo del video · ${done.size} respondidas · ${ok.size} correctas</p></div>
+        <ol class="vw-study-list">${cps.map((c, i) => `<li class="${done.has(i) ? (ok.has(i) ? 'ok' : 'bad') : ''}"><span>${esc(c.q)}</span>${chip(c.at)}</li>`).join('')}</ol>
+        <div class="sn-foot-note">Con el modo estudio activo, el video se pausa en cada punto y te hace la pregunta.</div>`;
+    },
+  };
+
   /**
    * Dibuja la vista de una acción. Devuelve {ok, markdown, controller} o {ok:false} si la respuesta no es válida.
    * ctx: { video, state, toast, accent }
@@ -404,15 +557,42 @@
 
   /** Cuenta elementos mientras llega la respuesta (para el indicador de progreso). */
   function progressCount(actionId, text) {
-    const keys = { summary: '"text"', keypoints: '"title"', chapters: '"title"', quiz: '"q"', flashcards: '"front"', quotes: '"text"', steps: '"title"', factcheck: '"claim"', thread: '",', linkedin: '\n' };
+    const keys = { podcast: '"text"', skip: '"kind"', study: '"q"', summary: '"text"', keypoints: '"title"', chapters: '"title"', quiz: '"q"', flashcards: '"front"', quotes: '"text"', steps: '"title"', factcheck: '"claim"', thread: '",', linkedin: '\n' };
     const k = keys[actionId];
     return k ? String(text).split(k).length - 1 : 0;
   }
 
-  SN.views = { render, toMarkdown, parse, progressCount, has: (id) => !!V[id] };
+  SN.views = { render, toMarkdown, parse, progressCount, has: (id) => !!V[id], skipSegments, studyCheckpoints, SKIP_KINDS, fmt };
 
   /* ---------------- estilos ---------------- */
   SN.styles = `${SN.styles || ''}
+.vw-pod-head { display: flex; gap: 12px; align-items: center; margin: 6px 0 10px; }
+.vw-pod-cover { flex: none; width: 58px; height: 58px; border-radius: 14px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, var(--sn-accent), var(--sn-accent-2)); box-shadow: 0 8px 20px color-mix(in srgb, var(--sn-accent) 35%, transparent); }
+.vw-pod-cover .sn-i { width: 28px; height: 28px; }
+.vw-pod-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vw-pod-meta b { font-size: 15px; line-height: 1.3; }
+.vw-pod-meta > span:last-child { color: var(--sn-fg-2); font-size: 12.5px; }
+.vw-pod-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.vw-pod-progress { flex: 1; height: 6px; border-radius: 999px; background: var(--sn-bg-3); overflow: hidden; }
+.vw-pod-progress span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--sn-accent), var(--sn-accent-2)); transition: width .3s; }
+.vw-pod-count { font-size: 12px; color: var(--sn-fg-2); font-variant-numeric: tabular-nums; }
+.vw-pod-lines { display: flex; flex-direction: column; gap: 8px; }
+.vw-pod-line { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 12px; cursor: pointer; border: 1px solid transparent; transition: background .15s, border-color .15s; }
+.vw-pod-line:hover { background: var(--sn-bg-2); }
+.vw-pod-line.on { background: var(--sn-accent-soft); border-color: var(--sn-accent); }
+.vw-pod-line p { margin: 2px 0 0; }
+.vw-pod-line b { font-size: 12.5px; }
+.vw-pod-line.s1 { flex-direction: row-reverse; text-align: right; }
+.vw-pod-avatar { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13px; color: #fff; background: var(--sn-accent); }
+.vw-pod-line.s1 .vw-pod-avatar { background: var(--sn-accent-2); }
+.vw-skip-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.vw-skip-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--sn-border); border-radius: 10px; }
+.vw-skip-kind { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff; background: var(--c); white-space: nowrap; }
+.vw-skip-label { min-width: 0; }
+.vw-skip-range { white-space: nowrap; font-size: 12.5px; color: var(--sn-fg-2); }
+.vw-study-list { padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.vw-study-list li.ok::marker { color: #1f9d55; } .vw-study-list li.bad::marker { color: #d93025; }
+.vw-study-list li span { margin-right: 6px; }
 .vw { animation: sn-fade .25s ease; }
 @keyframes sn-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .vw .sn-i { width: 15px; height: 15px; }
