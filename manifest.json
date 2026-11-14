@@ -65,6 +65,7 @@
         "src/content/tts.js",
         "src/content/surfaces.js",
         "src/content/windows.js",
+        "src/content/combo.js",
         "src/content/panel.js",
         "src/content/main.js"
       ],

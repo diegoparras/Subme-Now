@@ -223,7 +223,14 @@ try {
   const langs = await page.locator('#subme-now-host [data-ref="lang"] option').allInnerTexts();
   check('Selector de idiomas + traducciones', langs.includes('Español') && langs.includes('English') && langs.some((l) => l.includes('Inglés')), langs.join(', '));
 
-  await page.locator('#subme-now-host [data-ref="lang"]').selectOption('it:PARAMS_EN');
+  // Desplegable de idiomas con buscador (sin importar acentos)
+  await page.locator('#subme-now-host .sn-combo-btn').first().click();
+  await page.locator('#subme-now-host .sn-combo-search input').fill('ingles');
+  check('Idiomas: el buscador ignora los acentos', (await page.locator('#subme-now-host .sn-combo-opt').allInnerTexts()).some((t) => t.includes('Inglés')));
+  await page.locator('#subme-now-host .sn-combo-search input').fill('engl');
+  check('Idiomas: el buscador filtra la lista', (await page.locator('#subme-now-host .sn-combo-opt').count()) === 1, await page.locator('#subme-now-host .sn-combo-list').innerText());
+  await page.locator('#subme-now-host .sn-combo-search input').press('Enter');
+  check('Idiomas: el botón muestra el idioma elegido', (await page.locator('#subme-now-host .sn-combo-label').first().textContent()) === 'English');
   await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-seg')?.textContent.includes('Hello'));
   check('Cambio de idioma', true);
 

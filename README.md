@@ -15,6 +15,7 @@ Sin servidores intermedios: la transcripción sale directo de YouTube y las cons
 - **Clic en cualquier línea para saltar** a ese momento del video.
 - **Seguimiento en vivo**: resalta la línea que se está reproduciendo y hace scroll automático.
 - **Búsqueda** dentro de la transcripción con resaltado.
+- **Buscador de idiomas**: el selector de idioma (con más de cien traducciones automáticas) se filtra escribiendo, sin importar los acentos.
 - Mostrar u ocultar las marcas de tiempo.
 - **Copiar** y **descargar** como TXT (con o sin tiempos), **SRT**, **VTT**, **Markdown** o **JSON**.
 

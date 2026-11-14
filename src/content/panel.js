@@ -138,6 +138,8 @@
       this.refs = {};
       this.shadow.querySelectorAll('[data-ref]').forEach((el) => { this.refs[el.dataset.ref] = el; });
       this.root = this.shadow.querySelector('.sn-root');
+      // Con la traducción automática la lista de idiomas pasa de cien: se le agrega un buscador.
+      SN.combo?.enhance(this.refs.lang, { placeholder: 'Buscar idioma…' });
 
       this.settings = SubmeSettings.DEFAULT_SETTINGS;
       this.timeListeners = new Set();
