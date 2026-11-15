@@ -46,7 +46,15 @@ ESCUCHAR Y EXPORTAR
 • Copia con formato para pegar en tus documentos y apps de notas, envía notas a tu bóveda de notas en Markdown, o descarga en Markdown, documento de texto (.docx) o PDF.
 • Las marcas de tiempo exportadas son enlaces al minuto exacto del video.
 
+EN VIVO, SOBRE EL VIDEO
+• Saltar lo que sobra: la IA marca patrocinios, intros, despedidas y relleno en la barra del video y los salta por ti, con un botón para deshacer.
+• Modo estudio: el video se pausa al terminar cada tema y te hace una pregunta. Si fallas, vuelves justo a la parte que lo explica.
+• Subtítulos dobles: el idioma original y la traducción, uno arriba del otro, incluso en pantalla completa. Ideal para aprender idiomas.
+• Podcast: el video convertido en una charla entre dos presentadores, leída con dos voces distintas.
+• ¿Qué quiso decir acá?: pregúntale por cualquier línea de la transcripción.
+
 TU BIBLIOTECA
+• Pregúntale a tu biblioteca: un chat que busca en todo lo que guardaste y responde citando el video y el minuto.
 • Todo lo que generas se guarda en tu navegador: al volver a un video ves tus resultados, tu chat y tu progreso al instante, sin volver a consultar a la IA.
 • Busca en todo lo guardado y llega al minuto exacto del video donde está cada coincidencia.
 • Filtra por canal, tipo y fecha, marca favoritos y organiza con etiquetas.
@@ -118,7 +126,15 @@ LISTEN AND EXPORT
 • Copy with formatting into your documents and note apps, send notes to your Markdown vault, or download as Markdown, a text document (.docx) or PDF.
 • Exported timestamps link to the exact minute of the video.
 
+LIVE, ON THE VIDEO
+• Skip the filler: AI marks sponsors, intros, outros and filler on the video's progress bar and skips them for you, with an undo button.
+• Study mode: the video pauses at the end of each topic and asks you a question. Get it wrong and you jump back to the part that explains it.
+• Dual subtitles: the original language and the translation, one above the other, even in full screen. Great for learning languages.
+• Podcast: the video turned into a conversation between two hosts, read aloud with two different voices.
+• What did they mean here?: ask about any line of the transcript.
+
 YOUR LIBRARY
+• Ask your library: a chat that searches everything you saved and answers citing the video and the minute.
 • Everything you generate is saved in your browser: come back to a video and your results, chat and progress are there instantly, without asking the AI again.
 • Search everything you saved and jump to the exact minute of each match.
 • Filter by channel, type and date, mark favorites and organize with tags.
@@ -158,7 +174,7 @@ Subme Now is not affiliated with YouTube or Google.
 | Campo del dashboard | Archivo | Tamaño |
 |---|---|---|
 | Ícono de la tienda | `icons/icon128.png` | 128×128 |
-| Capturas de pantalla (hasta 5) | `store/screenshots/1-…` a `5-…` (de la 6 a la 10 son opcionales; no subas la 10, que muestra nombres de proveedores) | 1280×800 |
+| Capturas de pantalla (hasta 5) | `store/screenshots/1-…` a `5-…` (de la 6 a la 15 son opcionales; no subas la 15, que muestra nombres de proveedores) | 1280×800 |
 | Mosaico promocional pequeño | `store/promo-small-440x280.png` | 440×280 |
 | Marquesina (opcional) | `store/marquee-1400x560.png` | 1400×560 |
 

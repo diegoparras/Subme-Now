@@ -24,7 +24,7 @@ const SHOTS = path.join(OUT, 'screenshots');
 fs.mkdirSync(SHOTS, { recursive: true });
 
 /* ---------------- contenido de ejemplo ---------------- */
-import { VIDEO_ID, TITLE, LINES, RESPONSES, STRUCTURED, pickResponse, playerResponse, initialData, transcriptJson } from './demo-data.mjs';
+import { VIDEO_ID, TITLE, LINES, LINES_EN, RESPONSES, STRUCTURED, pickResponse, playerResponse, initialData, transcriptJson } from './demo-data.mjs';
 
 /* ---------------- API de IA simulada ---------------- */
 const sse = (text) => `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\ndata: [DONE]\n\n`;
@@ -35,8 +35,8 @@ const server = http.createServer((req, res) => {
   let body = '';
   req.on('data', (c) => { body += c; });
   req.on('end', () => {
-    const last = JSON.parse(body).messages.at(-1).content;
-    const text = pickResponse(last);
+    const parsed = JSON.parse(body);
+    const text = aiText(parsed) || pickResponse(parsed.messages.at(-1).content);
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
     res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\ndata: [DONE]\n\n`);
     res.end();
@@ -67,7 +67,8 @@ const css = `
   .video .play { position: absolute; left: 50%; top: 45%; transform: translate(-50%,-50%); width: 84px; height: 84px; border-radius: 50%; background: rgba(255,255,255,.92); display: grid; place-items: center; }
   .video .play::after { content: ""; border-left: 26px solid #3b2a8f; border-top: 16px solid transparent; border-bottom: 16px solid transparent; margin-left: 6px; }
   .video .vt { position: absolute; left: 22px; bottom: 18px; right: 22px; color: #fff; font-size: 22px; font-weight: 700; text-shadow: 0 2px 10px rgba(0,0,0,.3); }
-  .video .bar { position: absolute; left: 0; bottom: 0; height: 5px; width: 38%; background: #ff3d7f; }
+  .video .ytp-progress-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255,255,255,.28); }
+  .video .bar { position: absolute; left: 0; top: 0; bottom: 0; width: 38%; background: #ff3d7f; }
   video { display: none; }
   .short { margin: 18px 0 0 120px; width: 300px; height: 533px; border-radius: 22px; background: linear-gradient(180deg, #ff6a8b, #3b2a8f); position: relative; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
   .short .vt { position: absolute; left: 18px; right: 18px; bottom: 26px; color: #fff; font-weight: 700; font-size: 19px; }
@@ -78,11 +79,11 @@ const css = `
 function page({ kicker, title, lead, dark = false, shorts = false }) {
   const left = shorts
     ? `<div class="kicker">${kicker}</div><h1>${title}</h1><p class="lead">${lead}</p><div class="short"><div class="play"></div><div class="vt">3 trucos para recordar vocabulario</div></div>`
-    : `<div class="kicker">${kicker}</div><h1>${title}</h1><p class="lead">${lead}</p><div class="video"><div class="play"></div><div class="vt">${TITLE}</div><div class="bar"></div></div>`;
+    : `<div class="kicker">${kicker}</div><h1>${title}</h1><p class="lead">${lead}</p><div class="video html5-video-player"><div class="play"></div><div class="vt">${TITLE}</div><div class="ytp-progress-bar"><div class="bar"></div></div><video class="html5-main-video" muted></video></div>`;
   return `<!doctype html><html lang="es"${dark ? ' dark' : ''}><head><meta charset="utf-8"><title>${TITLE}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet"><style>${css}</style></head>
   <body class="${dark ? 'dark' : ''}"><ytd-app><ytd-watch-flexy>
-    <div id="primary">${left}<video class="html5-main-video" muted></video>${shorts ? '<ytd-shorts><ytd-reel-video-renderer is-active><video muted></video></ytd-reel-video-renderer></ytd-shorts>' : ''}</div>
+    <div id="primary">${left}${shorts ? '<video class="html5-main-video" muted></video>' : ''}${shorts ? '<ytd-shorts><ytd-reel-video-renderer is-active><video muted></video></ytd-reel-video-renderer></ytd-shorts>' : ''}</div>
     ${shorts ? '' : '<div id="secondary"><div id="secondary-inner"></div></div>'}
   </ytd-watch-flexy></ytd-app>
   <script>var ytInitialPlayerResponse = ${JSON.stringify(playerResponse)};</script>
@@ -108,6 +109,10 @@ const SCENES = {
   summary: { kicker: `${ICON('sparkles')} Resúmenes con IA`, title: 'Entiende un video de 15 minutos <em>en 30 segundos</em>', lead: 'Resúmenes, puntos clave, apuntes, quizzes y flashcards con tu propia API key, del proveedor de IA que prefieras.' },
   chapters: { kicker: `${ICON('mindmap')} Mapa mental`, title: 'Capítulos con marcas de tiempo <em>clicables</em>', lead: 'Cada marca de tiempo de la IA te lleva directo a ese momento del video.' },
   chat: { kicker: `${ICON('chat')} Chat`, title: 'Hazle preguntas <em>al video</em>', lead: 'Responde a partir de lo que realmente se dice e indica en qué minuto lo encuentras.', dark: true },
+  skip: { kicker: `${ICON('scissors')} Saltar lo que sobra`, title: 'El video, <em>sin relleno</em>', lead: 'La IA marca patrocinios, intros y despedidas en la barra del video y los salta por ti. Con un clic, deshaces.' },
+  study: { kicker: `${ICON('graduation')} Modo estudio`, title: 'El video <em>te toma examen</em>', lead: 'Se pausa al terminar cada tema y te hace una pregunta. Si fallas, vuelves justo a la parte que lo explica.', dark: true },
+  dual: { kicker: `${ICON('subtitles')} Subtítulos dobles`, title: 'Dos idiomas, <em>al mismo tiempo</em>', lead: 'El original y la traducción, uno arriba del otro, sobre el video. Ideal para aprender idiomas.', dark: true },
+  podcast: { kicker: `${ICON('headphones')} Podcast`, title: 'Escúchalo como <em>un podcast</em>', lead: 'Dos presentadores te explican el video en una charla natural, con voces distintas. Perfecto para caminar o manejar.' },
   shorts: { kicker: `${ICON('phone')} YouTube Shorts`, title: 'También funciona <em>en Shorts</em>', lead: 'Un panel flotante con la transcripción y todas las acciones de IA.', dark: true, shorts: true },
 };
 
@@ -124,9 +129,20 @@ const context = await chromium.launchPersistentContext(userDataDir, {
 
 let scene = 'transcript';
 let openrouterRouted = false;
+const aiText = (body) => {
+  const last = body.messages.at(-1).content;
+  if (last.includes('número|traducción')) return last.split('\n').map((l) => /^(\d+)\|/.exec(l)).filter(Boolean).map((m) => `${m[1]}|${LINES_EN[Number(m[1])] || ''}`).join('\n');
+  if (body.messages[0]?.role === 'system' && body.messages[0].content.includes('biblioteca personal')) {
+    return 'Tres de tus videos coinciden en la misma idea: **poco, pero todos los días**.\n\n- En el de idiomas, la clave es que *la constancia gana a la intensidad*: 30 minutos diarios rinden más que 5 horas un domingo [[V1 00:14]].\n- El de productividad propone bloques fijos en el calendario para que el hábito no dependa de la motivación [[V7]].\n- Y el de finanzas aplica lo mismo al ahorro: automatizar un porcentaje fijo cada mes [[V2]].\n\n**Para empezar hoy:** elige un solo hábito, ponle un horario y mide tu progreso una vez por mes [[V1 10:00]].';
+  }
+  return null;
+};
 await context.route('https://openrouter.ai/**', (route) => {
   openrouterRouted = true;
-  const last = JSON.parse(route.request().postData()).messages.at(-1).content;
+  const body = JSON.parse(route.request().postData());
+  const special = aiText(body);
+  if (special) return route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body: sse(special) });
+  const last = body.messages.at(-1).content;
   return route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body: sse(pickResponse(last)) });
 });
 // Miniaturas: la del video de ejemplo y, para la biblioteca, miniaturas generadas de colores.
@@ -170,7 +186,7 @@ try {
   await opts.reload();
   await opts.waitForSelector('.provider.active');
   await opts.emulateMedia({ colorScheme: 'light' });
-  await opts.screenshot({ path: path.join(SHOTS, '10-configuracion.png') });
+  await opts.screenshot({ path: path.join(SHOTS, '15-configuracion.png') });
 
   // Si Playwright puede interceptar el service worker se muestra OpenRouter; si no, la API local.
   await opts.evaluate(async () => {
@@ -243,6 +259,41 @@ try {
     await p.locator(`${sr} [data-ref="chatinput"]`).press('Enter');
     await waitOutput(p, '.sn-msg.assistant');
   });
+  const tick = (p, t) => p.evaluate((x) => { const v = document.querySelector('video.html5-main-video'); v.currentTime = x; v.dispatchEvent(new Event('timeupdate')); }, t);
+  await shoot('skip', async (p) => {
+    await p.locator(`${sr} [data-tab="ai"]`).click();
+    await p.locator(`${sr} [data-live="skip"]`).first().click();
+    await p.locator(`${sr} .sn-output .vw-skip-row`).first().waitFor({ timeout: 15000 });
+    await hideGrid(p);
+    await tick(p, 186); await tick(p, 190.5);
+    await p.waitForTimeout(400);
+  });
+  await shoot('study', async (p) => {
+    await p.locator(`${sr} [data-tab="ai"]`).click();
+    await p.locator(`${sr} [data-live="study"]`).first().click();
+    await p.locator(`${sr} .sn-output .vw-study-list`).waitFor({ timeout: 15000 });
+    await hideGrid(p);
+    await tick(p, 68); await tick(p, 70.5);
+    await p.waitForTimeout(400);
+  });
+  await shoot('dual', async (p) => {
+    await p.locator(`${sr} [data-act="dualsubs"]`).click();
+    await p.waitForFunction(() => { const r = document.querySelector('#subme-live')?.shadowRoot; return r && !r.querySelector('.lv-subs .st'); }, null, { timeout: 15000 }).catch(() => {});
+    await tick(p, 15); await tick(p, 16);
+    await p.evaluate(() => {
+      const r = document.querySelector('#subme-now-host').shadowRoot;
+      r.querySelectorAll('.sn-seg').forEach((e) => e.classList.toggle('current', e.dataset.t === '14'));
+    });
+    await p.locator(`${sr} [data-act="dualsubs"]`).evaluate(() => {});
+  });
+  await opts.evaluate(async () => { const { settings } = await chrome.storage.local.get('settings'); settings.dualSubs = false; await chrome.storage.local.set({ settings }); });
+  await shoot('podcast', async (p) => {
+    await p.locator(`${sr} [data-tab="ai"]`).click();
+    await p.locator(`${sr} [data-action="podcast"]`).click();
+    await p.locator(`${sr} .vw-pod-line`).first().waitFor({ timeout: 15000 });
+    await hideGrid(p);
+    await p.evaluate(() => document.querySelector('#subme-now-host').shadowRoot.querySelectorAll('.vw-pod-line')[2].classList.add('on'));
+  });
   await shoot('shorts', async (p) => {
     await p.locator(`${sr} [data-tab="ai"]`).click();
     await p.locator(`${sr} [data-action="keypoints"]`).click();
@@ -290,7 +341,7 @@ try {
     <div class="side"><img src="data:image/png;base64,${sideShot}"></div></body></html>`);
   await comp.evaluate(() => document.fonts.ready);
   await comp.waitForTimeout(300);
-  await comp.screenshot({ path: path.join(SHOTS, '5-panel-lateral.png') });
+  await comp.screenshot({ path: path.join(SHOTS, '10-panel-lateral.png') });
   await comp.close();
 
   // Biblioteca: el video de ejemplo (ya guardado por las capturas anteriores) más otros videos.
@@ -322,21 +373,29 @@ try {
   await lib.locator('.vcard').nth(5).waitFor({ timeout: 10000 });
   await lib.evaluate(() => document.fonts.ready);
   await lib.waitForTimeout(600);
-  await lib.screenshot({ path: path.join(SHOTS, '4-biblioteca.png') });
+  await lib.screenshot({ path: path.join(SHOTS, '9-biblioteca.png') });
   await lib.fill('#q', 'constancia');
   await lib.locator('.hit').first().waitFor({ timeout: 5000 });
   await lib.waitForTimeout(300);
-  await lib.screenshot({ path: path.join(SHOTS, '8-busqueda.png') });
+  await lib.screenshot({ path: path.join(SHOTS, '13-busqueda.png') });
   await lib.fill('#q', '');
   await lib.waitForTimeout(300);
   await lib.locator('#reviewBtn').click();
   await lib.locator('.rv-card').click();
   await lib.waitForTimeout(700);
-  await lib.screenshot({ path: path.join(SHOTS, '9-repaso.png') });
+  await lib.screenshot({ path: path.join(SHOTS, '14-repaso.png') });
+  await lib.keyboard.press('Escape');
+  await lib.waitForTimeout(200);
+  await lib.locator('#askBtn').click();
+  await lib.locator('#askInput').fill('¿Qué me recomiendan mis videos para crear un hábito?');
+  await lib.locator('#askInput').press('Enter');
+  await lib.locator('.msg.ai .msg-sources').waitFor({ timeout: 15000 });
+  await lib.waitForTimeout(400);
+  await lib.screenshot({ path: path.join(SHOTS, '5-pregunta-biblioteca.png') });
   await lib.close();
 
   // Renombrar en orden
-  const order = { transcript: '1-transcripcion.png', summary: '2-resumen-ia.png', chapters: '3-mapa-mental.png', chat: '6-chat.png', shorts: '7-shorts.png' };
+  const order = { summary: '1-resumen-ia.png', skip: '2-saltar-lo-que-sobra.png', study: '3-modo-estudio.png', dual: '4-subtitulos-dobles.png', transcript: '6-transcripcion.png', chapters: '7-mapa-mental.png', podcast: '8-podcast.png', chat: '11-chat.png', shorts: '12-shorts.png' };
   for (const [from, to] of Object.entries(order)) fs.renameSync(path.join(SHOTS, `${from}.png`), path.join(SHOTS, to));
 
   // Imágenes promocionales
@@ -350,7 +409,7 @@ try {
     p{font-size:${big ? 30 : 16}px;font-weight:500;margin-top:${big ? 18 : 10}px;opacity:.92;line-height:1.3;max-width:${big ? 820 : 260}px}
     .chips{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}.chips span{background:rgba(255,255,255,.18);padding:8px 16px;border-radius:999px;font-size:20px;display:inline-flex;align-items:center;gap:8px}</style></head>
     <body><img src="${logo}"><div><h1>Subme Now</h1><p>Transcripciones y resúmenes con IA para YouTube</p>
-    ${big ? `<div class="chips"><span>${ICON('transcript')} Transcripción</span><span>${ICON('sparkles')} Resúmenes</span><span>${ICON('mindmap')} Mapas mentales</span><span>${ICON('chat')} Chat</span><span>${ICON('phone')} Shorts</span></div>` : ''}</div></body></html>`;
+    ${big ? `<div class="chips"><span>${ICON('scissors')} Saltar relleno</span><span>${ICON('graduation')} Modo estudio</span><span>${ICON('subtitles')} Subtítulos dobles</span><span>${ICON('headphones')} Podcast</span><span>${ICON('library')} Biblioteca</span></div>` : ''}</div></body></html>`;
   await promo.setViewportSize({ width: 440, height: 280 });
   await promo.setContent(promoHtml(440, 280, false));
   await promo.evaluate(() => document.fonts.ready);

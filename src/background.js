@@ -48,7 +48,7 @@ async function withShortcuts(settings) {
   return { ...settings, shortcuts };
 }
 
-const CONTENT_WRITABLE = ['panelCollapsed', 'shortsCollapsed', 'showTimestamps', 'autoScroll', 'responseLanguage', 'provider', 'ttsVoice', 'ttsRate', 'windows', 'onboardingDone'];
+const CONTENT_WRITABLE = ['panelCollapsed', 'shortsCollapsed', 'showTimestamps', 'autoScroll', 'responseLanguage', 'provider', 'ttsVoice', 'ttsRate', 'windows', 'onboardingDone', 'autoSkip', 'dualSubs', 'dualLang'];
 
 async function updateFromContent({ patch = {}, model }) {
   const s = await getSettings();

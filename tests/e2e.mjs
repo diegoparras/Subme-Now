@@ -23,6 +23,7 @@ const check = (name, ok, extra = '') => { results.push({ name, ok }); console.lo
 // ---------- API de IA falsa (compatible con OpenAI) ----------
 const requests = [];
 const geminiRequests = [];
+const libraryPrompts = [];
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', '*');
@@ -52,6 +53,9 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
     const last = json.messages.at(-1).content;
     const STRUCT = {
+      '"segments"': { segments: [{ start: '00:00', end: '00:04', kind: 'intro', label: 'Saludo inicial' }, { start: '00:09', end: '00:13', kind: 'sponsor', label: 'Patrocinio de prueba' }] },
+      '"checkpoints"': { checkpoints: [{ from: '00:00', t: '00:06', q: '¿Qué hace el autor al inicio?', options: ['Saluda', 'Se despide', 'Canta'], answer: 0, explanation: 'Saluda a todos.' }] },
+      '"lines"': { title: 'Episodio de prueba', hosts: ['Ana', 'Leo'], lines: [{ s: 0, text: 'Hola, hoy hablamos del video.', t: '00:00' }, { s: 1, text: 'Sí, trata de extensiones.', t: '00:08' }] },
       '"cards"': { cards: [{ front: '¿Qué es la constancia?', back: 'Estudiar todos los días un poco.', t: '00:14' }, { front: '¿Cuántas palabras por día?', back: 'Veinte.', t: '04:05' }, { front: '¿Qué pilar es el primero?', back: 'La exposición diaria.', t: '01:12' }] },
       '"questions"': { questions: [{ q: '¿Qué gana a la intensidad?', options: ['La suerte', 'La constancia', 'El talento', 'La gramática'], answer: 1, explanation: 'Lo dice al inicio.', t: '00:14' }, { q: '¿Cuántas palabras por día?', options: ['5', '10', '20', '100'], answer: 2, explanation: 'Con flashcards.', t: '04:05' }] },
       '"chapters"': { chapters: [{ t: '00:00', title: 'Introducción', summary: 'Presentación' }, { t: '00:08', title: 'El método', summary: 'Los pilares' }, { t: '00:20', title: 'Cierre', summary: 'Resumen final' }] },
@@ -62,6 +66,20 @@ const server = http.createServer((req, res) => {
       '"posts"': { posts: ['Aprender un idioma en 6 meses es posible.', 'El secreto: constancia diaria.', 'Conclusión: empieza hoy.'] },
       '"hashtags"': { text: 'Aprendí algo valioso hoy.\n\nLa constancia gana a la intensidad.\n\n¿Y tú qué idioma estudias?', hashtags: ['Idiomas', 'Aprendizaje', 'Productividad'] },
     };
+    if (last.includes('número|traducción')) {
+      const out = last.split('\n').map((l) => /^(\d+)\|(.+)$/.exec(l)).filter(Boolean).map((m) => `${m[1]}|EN: ${m[2]}`).join('\n');
+      for (const piece of out.match(/[\s\S]{1,40}/g)) res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: piece } }] })}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
+    if (json.messages[0]?.role === 'system' && json.messages[0].content.includes('biblioteca personal')) {
+      libraryPrompts.push(json.messages[0].content);
+      const text = 'Según tus videos, se habla de extensiones [[V1 00:08]] y de pronunciación [[V2 00:05]].';
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\ndata: [DONE]\n\n`);
+      res.end();
+      return;
+    }
     const structKey = Object.keys(STRUCT).find((k) => last.includes(k) && !last.includes('"tldr"'));
     const answer = structKey ? JSON.stringify(STRUCT[structKey]) : last.includes('mapa mental') ? [
       '- Aprender idiomas en 6 meses',
@@ -98,7 +116,7 @@ const playerResponse = {
 const initialData = { engagementPanels: [{ engagementPanelSectionListRenderer: { content: { continuationItemRenderer: { continuationEndpoint: { getTranscriptEndpoint: { params: 'PARAMS_ES' } } } } } }] };
 const watchHtml = `<!doctype html><html lang="es"><head><title>Video de prueba - YouTube</title></head><body>
 <ytd-app><ytd-watch-flexy style="display:flex;gap:16px">
-  <div id="primary" style="width:640px"><video class="html5-main-video" width="640" height="360" muted></video><div id="below"></div></div>
+  <div id="primary" style="width:640px"><div class="html5-video-player" style="position:relative;width:640px;height:360px"><video class="html5-main-video" width="640" height="360" muted></video><div class="ytp-progress-bar" style="position:absolute;left:0;right:0;bottom:4px;height:5px;background:#555"></div></div><div id="below"></div></div>
   <div id="secondary" style="width:400px;display:block;transform:translateZ(0)"><div id="secondary-inner" style="display:block"></div></div>
 </ytd-watch-flexy></ytd-app>
 <script>var ytInitialPlayerResponse = ${JSON.stringify(playerResponse)};</script>
@@ -223,7 +241,14 @@ try {
   const langs = await page.locator('#subme-now-host [data-ref="lang"] option').allInnerTexts();
   check('Selector de idiomas + traducciones', langs.includes('Español') && langs.includes('English') && langs.some((l) => l.includes('Inglés')), langs.join(', '));
 
-  await page.locator('#subme-now-host [data-ref="lang"]').selectOption('it:PARAMS_EN');
+  // Desplegable de idiomas con buscador (sin importar acentos)
+  await page.locator('#subme-now-host .sn-combo-btn').first().click();
+  await page.locator('#subme-now-host .sn-combo-search input').first().fill('ingles');
+  check('Idiomas: el buscador ignora los acentos', (await page.locator('#subme-now-host .sn-combo-opt').allInnerTexts()).some((t) => t.includes('Inglés')));
+  await page.locator('#subme-now-host .sn-combo-search input').first().fill('engl');
+  check('Idiomas: el buscador filtra la lista', (await page.locator('#subme-now-host .sn-combo-opt').count()) === 1, await page.locator('#subme-now-host .sn-combo-list').first().innerText());
+  await page.locator('#subme-now-host .sn-combo-search input').first().press('Enter');
+  check('Idiomas: el botón muestra el idioma elegido', (await page.locator('#subme-now-host .sn-combo-label').first().textContent()) === 'English');
   await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('.sn-seg')?.textContent.includes('Hello'));
   check('Cambio de idioma', true);
 
@@ -957,6 +982,13 @@ try {
   await side.locator('#subme-now-host [data-tab="ai"]').click();
   await side.screenshot({ path: path.join(process.env.SCREENSHOT_DIR || os.tmpdir(), 'subme-e2e-side.png') });
   check('Panel lateral: resultados guardados disponibles', Number(await side.evaluate(() => document.querySelector('#subme-now-host').shadowRoot.querySelector('[data-ref="aibadge"]').textContent)) >= 5);
+  // Las funciones en vivo pedidas desde el panel lateral se dibujan sobre el video de la pestaña.
+  await side.locator('#subme-now-host [data-tab="transcript"]').click();
+  await side.locator('#subme-now-host [data-act="dualsubs"]').click();
+  await page.waitForFunction(() => document.querySelector('#subme-live')?.shadowRoot.querySelector('.lv-subs:not([hidden])'), null, { timeout: 10000 }).catch(() => {});
+  check('Panel lateral: los subtítulos dobles se muestran sobre el video de la pestaña', await page.evaluate(() => !!document.querySelector('#subme-live')?.shadowRoot.querySelector('.lv-subs:not([hidden])')));
+  await side.locator('#subme-now-host [data-act="dualsubs"]').click();
+  await page.waitForTimeout(300);
   await side.close();
   await page.waitForTimeout(400);
   check('Panel lateral: al cerrarlo vuelve el panel en YouTube', await page.evaluate(() => getComputedStyle(document.querySelector('#subme-now-host')).display !== 'none'));
@@ -980,6 +1012,91 @@ try {
   });
   check('Logo: en la configuración también cambia de color', optLogo[2] > optLogo[0] + 60, optLogo.join(','));
   await opts.evaluate(async () => { const { settings } = await chrome.storage.local.get('settings'); settings.iconColor = ''; await chrome.storage.local.set({ settings }); });
+
+  // ---------- v1.7: funciones en vivo ----------
+  const ev = (fn, arg) => page.evaluate(fn, arg);
+  const tickAt = async (t) => { await ev((x) => { const v = document.querySelector('video'); v.currentTime = x; v.dispatchEvent(new Event('timeupdate')); }, t); await page.waitForTimeout(120); };
+  const liveRoot = () => ev(() => !!document.querySelector('#subme-live')?.shadowRoot);
+  await page.locator('#subme-now-host [data-tab="ai"]').click();
+  check('En vivo: tarjetas de saltar y modo estudio', (await page.locator('#subme-now-host .sn-live-card').count()) === 2);
+  // Saltar lo que sobra
+  await page.locator('#subme-now-host [data-live="skip"]').first().click();
+  await page.locator('#subme-now-host .sn-output .vw-skip-row').first().waitFor({ timeout: 10000 });
+  await page.waitForTimeout(300);
+  check('Saltar: la IA marca los tramos', (await page.locator('#subme-now-host .sn-output .vw-skip-row').count()) === 2);
+  check('Saltar: los tramos se pintan en la barra de progreso', await ev(() => document.querySelectorAll('.ytp-progress-bar .subme-skip-markers > div').length === 2));
+  await tickAt(8);
+  await tickAt(9.5);
+  check('Saltar: salta el patrocinio solo', Math.round(await ev(() => document.querySelector('video').currentTime)) === 13);
+  check('Saltar: avisa lo que saltó', (await ev(() => document.querySelector('#subme-live').shadowRoot.querySelector('.lv-notice')?.textContent || '')).includes('Patrocinio'));
+  await ev(() => document.querySelector('#subme-live').shadowRoot.querySelector('.lv-notice [data-undo]').click());
+  check('Saltar: "Deshacer" vuelve al inicio del tramo', Math.round(await ev(() => document.querySelector('video').currentTime)) === 9);
+  await tickAt(10);
+  check('Saltar: después de deshacer no lo vuelve a saltar', Math.round(await ev(() => document.querySelector('video').currentTime)) === 10);
+  await page.locator('#subme-now-host [data-live="skip"][data-live-op="toggle"]').click();
+  await page.waitForTimeout(200);
+  await tickAt(0.2);
+  check('Saltar: se puede desactivar', Math.round(await ev(() => document.querySelector('video').currentTime * 10)) === 2);
+  await page.locator('#subme-now-host [data-live="skip"][data-live-op="toggle"]').click();
+  // Modo estudio
+  await page.locator('#subme-now-host [data-live="study"]').first().click();
+  await page.locator('#subme-now-host .sn-output .vw-study-list').waitFor({ timeout: 10000 });
+  await page.waitForTimeout(300);
+  check('Modo estudio: se activa al prepararlo', await page.locator('#subme-now-host .sn-live-card.on').count() >= 1);
+  await tickAt(5);
+  await tickAt(6.4);
+  const card = await ev(() => document.querySelector('#subme-live').shadowRoot.querySelector('.lv-card')?.textContent || '');
+  check('Modo estudio: pausa el video y pregunta', card.includes('¿Qué hace el autor al inicio?') && await ev(() => document.querySelector('video').paused));
+  await ev(() => document.querySelector('#subme-live').shadowRoot.querySelector('.vw-option[data-j="0"]').click());
+  check('Modo estudio: corrige la respuesta', (await ev(() => document.querySelector('#subme-live').shadowRoot.querySelector('.vw-explain')?.textContent || '')).includes('Correcto'));
+  await ev(() => document.querySelector('#subme-live').shadowRoot.querySelector('[data-lv="go"]').click());
+  check('Modo estudio: "Continuar" cierra la pregunta', !(await ev(() => !!document.querySelector('#subme-live').shadowRoot.querySelector('.lv-card'))));
+  await tickAt(5);
+  await tickAt(6.4);
+  check('Modo estudio: no repite una pregunta respondida', !(await ev(() => !!document.querySelector('#subme-live').shadowRoot.querySelector('.lv-card'))));
+  await page.waitForTimeout(900);
+  const rec17 = (await opts.evaluate((id) => chrome.runtime.sendMessage({ type: 'historyGet', videoId: id }), VIDEO_ID)).record;
+  check('Modo estudio: guarda el progreso', rec17?.viewStates?.study?.correct?.includes(0) && !!rec17.results.skip && !!rec17.results.study, JSON.stringify(rec17?.viewStates?.study));
+  // Podcast
+  await page.locator('#subme-now-host [data-action="podcast"]').click();
+  await page.locator('#subme-now-host .vw-pod-line').first().waitFor({ timeout: 10000 });
+  check('Podcast: conversación entre dos presentadores', (await page.locator('#subme-now-host .vw-pod-line').count()) === 2 && (await page.locator('#subme-now-host .vw-pod-line.s1 b').first().textContent()) === 'Leo');
+  await page.locator('#subme-now-host .vw-pod-play').click();
+  await page.waitForTimeout(300);
+  await page.locator('#subme-now-host .vw-pod-stop').click().catch(() => {});
+  check('Podcast: se puede reproducir y detener', true);
+  // Subtítulos dobles
+  await page.locator('#subme-now-host [data-tab="transcript"]').click();
+  await page.locator('#subme-now-host [data-act="dualsubs"]').click();
+  await page.waitForFunction(() => document.querySelector('#subme-live')?.shadowRoot.querySelector('.lv-subs')
+    && !document.querySelector('#subme-live').shadowRoot.querySelector('.lv-subs .st'), null, { timeout: 10000 }).catch(() => {});
+  await tickAt(4.5);
+  const subs = await ev(() => { const r = document.querySelector('#subme-live').shadowRoot; return { or: r.querySelector('.lv-subs .or')?.textContent || '', tr: r.querySelector('.lv-subs .tr')?.textContent || '', st: r.querySelector('.lv-subs .st')?.textContent || '' }; });
+  check('Subtítulos dobles: original y traducción sobre el video', subs.or.length > 0 && subs.tr.length > 0, JSON.stringify(subs));
+  check('Subtítulos dobles: se elige el idioma', await page.locator('#subme-now-host [data-ref="dualbar"]').isVisible());
+  await page.locator('#subme-now-host [data-act="dualsubs"]').click();
+  await page.waitForTimeout(200);
+  check('Subtítulos dobles: se apagan', await ev(() => document.querySelector('#subme-live').shadowRoot.querySelector('.lv-subs').hidden));
+  // ¿Qué quiso decir acá?
+  await page.locator('#subme-now-host .sn-seg').nth(1).hover();
+  await page.locator('#subme-now-host [data-ref="segask"]').click();
+  await page.locator('#subme-now-host .sn-msg.user', { hasText: 'Explícame este momento' }).waitFor({ timeout: 5000 });
+  check('"¿Qué quiso decir acá?": pregunta por esa línea en el chat', (await page.locator('#subme-now-host .sn-msg.user').last().textContent()).includes('[00:04]'));
+  await page.waitForTimeout(800);
+
+  // ---------- v1.7: preguntarle a la biblioteca ----------
+  const lib2 = await context.newPage();
+  lib2.on('pageerror', (e) => errors.push(`biblioteca: ${e.message}`));
+  await lib2.goto(`chrome-extension://${extId}/src/library/library.html`);
+  await lib2.locator('.vcard').first().waitFor({ timeout: 10000 });
+  await lib2.locator('#askBtn').click();
+  await lib2.locator('#askInput').fill('¿Qué se dice de las extensiones?');
+  await lib2.locator('#askInput').press('Enter');
+  await lib2.locator('.msg.ai a').first().waitFor({ timeout: 10000 });
+  const cite = await lib2.locator('.msg.ai a').first().getAttribute('href');
+  check('Biblioteca: responde citando el video y el minuto', cite.includes(`v=${VIDEO_ID}`) && cite.includes('t=8s'), cite);
+  check('Biblioteca: la IA recibe fragmentos y el catálogo de tus videos', libraryPrompts.at(-1).includes('V1: "Video de prueba"') && libraryPrompts.at(-1).includes('<fuentes>'));
+  await lib2.close();
 
   check('Sin errores en la consola', errors.length === 0, errors.join(' | '));
 } finally {

@@ -13,7 +13,8 @@
       <div><h1>Biblioteca</h1><p id="stats">Cargando…</p></div>
     </div>
     <div class="top-actions">
-      <button class="btn primary" id="reviewBtn" type="button"></button>
+      <button class="btn primary" id="askBtn" type="button"></button>
+      <button class="btn" id="reviewBtn" type="button"></button>
       <div class="dropdown">
         <button class="btn" id="exportBtn" type="button"></button>
         <div class="menu" id="exportMenu" hidden>
@@ -63,6 +64,21 @@
 
   <div class="detail" id="detail" hidden></div>
   <div class="review" id="review" hidden></div>
+  <div class="detail" id="ask" hidden>
+    <div class="panel ask-panel" role="dialog" aria-label="Preguntar a tu biblioteca">
+      <div class="d-head ask-head">
+        <span class="ask-badge" id="askIcon"></span>
+        <div class="d-info"><h2>Pregúntale a tu biblioteca</h2><div class="vmeta" id="askScope"></div></div>
+        <button class="close" id="askClose" title="Cerrar (Esc)"></button>
+      </div>
+      <div class="ask-log" id="askLog"></div>
+      <div class="ask-suggest" id="askSuggest"></div>
+      <form class="ask-form" id="askForm">
+        <textarea id="askInput" rows="2" placeholder="¿Qué dijeron mis videos sobre…? (Enter para enviar)"></textarea>
+        <button class="btn primary" type="submit" id="askSend">Preguntar</button>
+      </form>
+    </div>
+  </div>
   <div class="toast" id="toast"></div>
 
   <script src="../shared/utils.js"></script>
@@ -73,6 +89,7 @@
   <script src="../shared/markdown.js"></script>
   <script src="../shared/history.js"></script>
   <script src="../content/styles.js"></script>
+  <script src="../content/ai.js"></script>
   <script src="../content/views.js"></script>
   <script src="../content/mindmap.js"></script>
   <script src="../content/surfaces.js"></script>

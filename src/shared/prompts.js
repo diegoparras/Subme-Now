@@ -98,6 +98,10 @@ Lista las afirmaciones factuales importantes (cifras, estudios, hechos) con su m
       prompt: 'Convierte el video en un artículo de blog bien escrito (800-1200 palabras) con título atractivo (#), introducción, secciones con subtítulos (##), conclusión y una meta-descripción SEO de máximo 155 caracteres al final. No lo escribas como transcripción: redáctalo como un artículo original.',
     },
     {
+      id: 'podcast', icon: 'headphones', label: 'Podcast', desc: 'El video como charla entre dos voces',
+      prompt: '',
+    },
+    {
       id: 'clean', icon: 'wand', label: 'Texto limpio', desc: 'Transcripción con puntuación',
       prompt: 'Reescribe la transcripción como un texto limpio y legible: agrega puntuación y mayúsculas, separa en párrafos, elimina muletillas y repeticiones, y corrige errores evidentes del reconocimiento automático, sin resumir ni cambiar el significado. Coloca la marca de tiempo [mm:ss] al inicio de cada párrafo.',
     },
@@ -154,10 +158,31 @@ Lista las afirmaciones factuales importantes (cifras, estudios, hechos) con su m
       schema: '{"posts": ["Texto de la publicación 1", "Texto de la publicación 2"]}',
       rules: 'Entre 6 y 10 publicaciones de máximo 270 caracteres cada una, sin numerarlas (se numeran solas) y sin hashtags excesivos.',
     },
+    podcast: {
+      guide: 'Convierte el video en un episodio de podcast: una conversación natural entre dos presentadores que se lo explican a quien escucha, con preguntas, ejemplos y entusiasmo, como un programa de radio.',
+      schema: '{"title": "Título del episodio", "hosts": ["Nombre del presentador 1", "Nombre del presentador 2"], "lines": [{"s": 0, "text": "Lo que dice el presentador", "t": "mm:ss"}]}',
+      rules: 'Entre 16 y 30 intervenciones alternadas; "s" es 0 o 1 (quién habla); frases habladas, sin Markdown ni emojis, de 1 a 3 oraciones; la primera intervención presenta el tema y la última cierra con la idea principal; dos nombres de pila comunes en el idioma de respuesta.',
+    },
     linkedin: {
       guide: 'Escribe una publicación para LinkedIn basada en el video: gancho inicial, 3 a 5 aprendizajes, una reflexión personal y una pregunta final para generar conversación.',
       schema: '{"text": "Texto completo de la publicación, con saltos de línea", "hashtags": ["Hashtag1", "Hashtag2", "Hashtag3"]}',
       rules: 'Entre 150 y 250 palabras; 3 hashtags sin el símbolo #.',
+    },
+  };
+
+  /* Funciones en vivo: no son botones de la grilla, controlan el video mientras se reproduce. */
+  const MODE_SPECS = {
+    skip: {
+      label: 'Saltar lo que sobra', icon: 'scissors',
+      guide: 'Detecta en la transcripción los tramos que el espectador probablemente quiera saltar.',
+      schema: '{"segments": [{"start": "mm:ss", "end": "mm:ss", "kind": "sponsor", "label": "Descripción breve"}]}',
+      rules: '"kind" debe ser exactamente uno de: "sponsor" (publicidad o patrocinio pagado), "selfpromo" (pedir suscripciones, likes, campanita, promocionar sus propios productos o redes), "intro" (presentación o introducción larga sin contenido), "outro" (despedida, créditos o avances del próximo video), "filler" (relleno o digresión que no aporta al tema), "recap" (repetición de algo ya dicho). Incluye solo tramos claramente identificables y de al menos 8 segundos; no se superponen; ordenados por tiempo; "end" es cuando vuelve el contenido. Si no hay nada que saltar, devuelve una lista vacía.',
+    },
+    study: {
+      label: 'Modo estudio', icon: 'graduation',
+      guide: 'Prepara puntos de control para estudiar el video mientras se reproduce: al terminar cada sección importante el video se pausa y se le hace una pregunta al espectador sobre lo que acaba de ver.',
+      schema: '{"checkpoints": [{"from": "mm:ss", "t": "mm:ss", "q": "Pregunta", "options": ["Opción A", "Opción B", "Opción C"], "answer": 0, "explanation": "Por qué es la correcta"}]}',
+      rules: 'Un punto de control cada 2 a 4 minutos de video (entre 2 y 10 en total); "from" es donde empieza la sección y "t" donde termina (ahí se pausa); ordenados por tiempo; 3 o 4 opciones; "answer" es el índice de la correcta; preguntas sobre ideas importantes, no detalles triviales.',
     },
   };
 
@@ -170,6 +195,37 @@ Reglas: ${rules} Escribe todos los textos en el idioma de respuesta indicado. "t
 
   for (const a of ACTIONS) {
     if (STRUCTURED[a.id]) { a.view = 'structured'; a.prompt = jsonPrompt(STRUCTURED[a.id]); }
+  }
+
+  const MODES = Object.fromEntries(Object.entries(MODE_SPECS).map(([id, m]) => [id, { id, icon: m.icon, label: m.label, view: 'structured', mode: true, prompt: jsonPrompt(m) }]));
+
+  /** Pregunta del chat para "¿Qué quiso decir acá?" sobre una línea de la transcripción. */
+  function explainMomentPrompt(time, line, before) {
+    return `Explícame este momento del video [${time}]: "${line}"${before ? `\n\nJusto antes dice: "${before}"` : ''}\n\n¿Qué quiso decir y por qué es importante en el contexto del video? Sé breve y claro.`;
+  }
+
+  /** Traducción línea por línea (subtítulos dobles cuando YouTube no ofrece traducción automática). */
+  function translateLinesPrompt(lines, language) {
+    return `Traduce cada línea al ${languageName(language)}, de forma natural y fiel. Responde ÚNICAMENTE con las líneas traducidas, una por línea, con el mismo número inicial y el formato "número|traducción". No omitas ni unas líneas.\n\n${lines.map((l) => `${l.i}|${l.text}`).join('\n')}`;
+  }
+
+  /** Chat con toda la biblioteca: fuentes recuperadas de varios videos. */
+  function buildLibrarySystemPrompt({ sources, catalog, responseLanguage }) {
+    return `Eres Subme Now, un asistente que responde preguntas usando la biblioteca personal de videos de YouTube del usuario (lo que vio y guardó).
+
+Reglas:
+- Responde siempre en ${languageName(responseLanguage)}, con Markdown claro y conciso.
+- Básate solo en las fuentes de abajo. Si la respuesta no está, dilo y sugiere qué video podría ayudar.
+- Cita cada dato con su fuente usando EXACTAMENTE el formato [[V3 12:30]] (número de video y minuto) o [[V3]] si no hay minuto. Puedes citar varios videos.
+- Si varios videos opinan distinto, compáralos.
+
+<catalogo>
+${catalog}
+</catalogo>
+
+<fuentes>
+${sources}
+</fuentes>`;
   }
 
   const CHAT_SUGGESTIONS = [
@@ -214,5 +270,8 @@ ${condensed
     return `Esta es la parte ${index + 1} de ${total} de la transcripción de un video largo. Toma notas detalladas y cronológicas de esta parte: conserva todos los datos, argumentos, nombres, cifras y ejemplos importantes, y empieza cada nota con su marca de tiempo [mm:ss]. No agregues introducción ni conclusión.`;
   }
 
-  root.SubmePrompts = { LANGUAGES, ACTIONS, CHAT_SUGGESTIONS, languageName, buildSystemPrompt, buildChunkNotesPrompt };
+  root.SubmePrompts = {
+    LANGUAGES, ACTIONS, MODES, CHAT_SUGGESTIONS, languageName, buildSystemPrompt, buildChunkNotesPrompt,
+    explainMomentPrompt, translateLinesPrompt, buildLibrarySystemPrompt,
+  };
 })(globalThis);

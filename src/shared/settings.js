@@ -33,6 +33,9 @@
     historyEnabled: true,
     historyDays: 0,
     sidePanelOnAction: true,
+    autoSkip: true,
+    dualSubs: false,
+    dualLang: '',
   };
 
   function merge(base, extra) {

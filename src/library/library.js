@@ -490,6 +490,174 @@
     drawReview();
   }
 
+  /* ---------- preguntarle a la biblioteca (búsqueda + IA con citas) ---------- */
+
+  const STOP = new Set('que los las del por para con una uno unos unas como mas pero sus este esta esto estos estas ese esa eso entre sobre cual cuales cuando donde quien quienes tiene tienen hay fue son ser era muy todo todos toda todas tambien porque desde hasta segun dijeron dice dicen hablan habla mis tus videos video the and for that with this from what which about have has are was were they their them you your how why who when where does did into than then there these those will would could should mis mi lo le les nos ya'.split(' '));
+  const terms = (q) => [...new Set(fold(q).split(/[^a-z0-9ñ]+/).filter((w) => w.length >= 3 && !STOP.has(w)))];
+  const firstTs = (text) => { const m = /((?:\d{1,2}:)?\d{1,2}:\d{2})/.exec(text); return m ? U.parseTime(m[1]) : null; };
+
+  function splitText(text, size) {
+    const out = [];
+    let cur = '';
+    for (const para of String(text).split(/\n{2,}|\n(?=[-*\d])/)) {
+      if (cur && cur.length + para.length > size) { out.push(cur); cur = ''; }
+      cur += (cur ? '\n' : '') + para;
+    }
+    if (cur.trim()) out.push(cur);
+    return out;
+  }
+
+  function buildChunks(list) {
+    const chunks = [];
+    list.forEach((r, v) => {
+      let cur = null;
+      for (const sg of r.transcript?.segments || []) {
+        if (!cur || sg.start - cur.t > 50 || cur.text.length > 700) { if (cur) chunks.push(cur); cur = { v, t: sg.start, text: '', src: 'transcripción' }; }
+        cur.text += (cur.text ? ' ' : '') + sg.text;
+      }
+      if (cur) chunks.push(cur);
+      for (const x of Object.values(r.results || {})) {
+        if (x.id.startsWith('subs-')) continue;
+        for (const part of splitText(resultText(x).replace(/```csv[\s\S]*?```/g, ''), 800)) chunks.push({ v, t: firstTs(part), text: part, src: x.label });
+      }
+      (r.chat || []).filter((m) => m.role === 'assistant').forEach((m) => { for (const part of splitText(m.content, 800)) chunks.push({ v, t: firstTs(part), text: part, src: 'chat' }); });
+    });
+    return chunks;
+  }
+
+  /** Elige los fragmentos más relevantes para la pregunta (TF-IDF simple, sin acentos). */
+  function retrieve(list, question, budget = 40000) {
+    const chunks = buildChunks(list);
+    const qt = terms(question);
+    const folded = chunks.map((c) => fold(c.text));
+    const df = Object.fromEntries(qt.map((w) => [w, folded.filter((f) => f.includes(w)).length]));
+    const titleHit = list.map((r) => qt.filter((w) => fold(`${r.title} ${r.author} ${(r.tags || []).join(' ')}`).includes(w)).length);
+    const scored = chunks.map((c, i) => {
+      let sc = 0;
+      for (const w of qt) {
+        if (!df[w]) continue;
+        const tf = folded[i].split(w).length - 1;
+        if (tf) sc += (1 + Math.log(tf)) * Math.log(1 + chunks.length / df[w]);
+      }
+      return { c, sc: sc ? sc + titleHit[c.v] * 0.8 : 0 };
+    }).filter((x) => x.sc > 0).sort((a, b) => b.sc - a.sc);
+    let picked = [];
+    let used = 0;
+    for (const { c } of scored) {
+      if (used + c.text.length > budget || picked.length >= 45) break;
+      picked.push(c);
+      used += c.text.length;
+    }
+    if (!picked.length) {
+      // Sin coincidencias (p. ej. otra lengua): lo más reciente y los resúmenes.
+      for (const [v] of list.entries()) {
+        const cs = chunks.filter((c) => c.v === v && c.src !== 'transcripción').slice(0, 2);
+        const tr = chunks.filter((c) => c.v === v && c.src === 'transcripción').slice(0, 1);
+        for (const c of [...cs, ...tr]) { if (used + c.text.length > budget) break; picked.push(c); used += c.text.length; }
+      }
+    }
+    return picked;
+  }
+
+  function tldrOf(r) {
+    const x = r.results?.summary;
+    if (x) {
+      const d = SN.views.parse(x.text);
+      const t = d?.tldr || resultText(x);
+      return String(t).replace(/[#*_`>]/g, '').replace(/\s+/g, ' ').slice(0, 220);
+    }
+    const any = Object.values(r.results || {})[0];
+    return any ? resultText(any).replace(/[#*_`>[\]{}"]/g, '').replace(/\s+/g, ' ').slice(0, 160) : '';
+  }
+
+  const ask = { msgs: [], busy: false, stream: null, list: [] };
+  const ASK_SUGGESTIONS = ['¿Qué temas se repiten en mis videos?', 'Resume lo más importante que aprendí', 'Haz un plan de estudio con lo que guardé', '¿En qué se contradicen mis videos?'];
+
+  function linkCitations(text, list) {
+    const label = (r) => String(r.title || r.videoId).replace(/[[\]()]/g, '').slice(0, 26) + (String(r.title || '').length > 26 ? '…' : '');
+    return String(text).replace(/\[\[?\s*V(\d+)(?:\s*[ ,·@-]\s*((?:\d{1,2}:)?\d{1,2}:\d{2}))?\s*\]\]?/g, (m, n, t) => {
+      const r = list[Number(n) - 1];
+      if (!r) return m;
+      const sec = t ? U.parseTime(t) : null;
+      return ` [${label(r)}${sec != null ? ` · ${U.formatTime(sec)}` : ''}](${ytUrl(r.videoId, sec)})`;
+    });
+  }
+
+  function renderAsk() {
+    const log = $('askLog');
+    const n = ask.list.length;
+    $('askScope').textContent = `Responde con lo que guardaste de ${n} ${n === 1 ? 'video' : 'videos'}${filtered().length !== records.length ? ' (con los filtros actuales)' : ''}, citando el video y el minuto.`;
+    if (!ask.msgs.length) {
+      log.innerHTML = `<div class="ask-empty"><span class="empty"><span class="big">${I('chat')}</span></span><b>Tu biblioteca, convertida en un segundo cerebro</b>Pregunta lo que quieras: la IA busca en tus resúmenes, chats y transcripciones y te dice en qué video y en qué minuto está cada cosa.</div>`;
+      $('askSuggest').innerHTML = ASK_SUGGESTIONS.map((q) => `<button type="button">${esc(q)}</button>`).join('');
+    } else {
+      log.innerHTML = ask.msgs.map((m) => {
+        if (m.role === 'user') return `<div class="msg user">${esc(m.content)}</div>`;
+        if (m.error) return `<div class="msg err">${I('alert')} ${esc(m.error)}${m.locked ? ' <button class="btn" data-unlock>Desbloquear</button>' : ''}</div>`;
+        if (!m.content) return `<div class="msg ai"><span class="typing"><i></i><i></i><i></i></span> ${esc(m.status || 'Buscando en tu biblioteca…')}</div>`;
+        const cited = [...new Set([...m.content.matchAll(/V(\d+)/g)].map((x) => Number(x[1])))].map((k) => ask.list[k - 1]).filter(Boolean);
+        return `<div class="msg ai">${MD.render(linkCitations(m.content, ask.list))}${cited.length && !ask.busy ? `<div class="msg-sources">${I('library')} Fuentes: ${cited.map((r) => `<a href="${ytUrl(r.videoId)}" target="_blank" rel="noopener">${esc(r.title || r.videoId)}</a>`).join('')}</div>` : ''}</div>`;
+      }).join('');
+      $('askSuggest').innerHTML = '';
+    }
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function openAsk() {
+    ask.list = filtered().length ? filtered() : records;
+    $('ask').hidden = false;
+    document.body.style.overflow = 'hidden';
+    renderAsk();
+    setTimeout(() => $('askInput').focus(), 0);
+  }
+
+  function closeAsk() {
+    ask.stream?.abort();
+    $('ask').hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  async function sendAsk(text) {
+    text = String(text || '').trim();
+    if (!text || ask.busy) return;
+    if (!ask.list.length) { toast('Tu biblioteca está vacía'); return; }
+    $('askInput').value = '';
+    ask.msgs.push({ role: 'user', content: text });
+    const reply = { role: 'assistant', content: '' };
+    ask.msgs.push(reply);
+    ask.busy = true;
+    $('askSend').disabled = true;
+    renderAsk();
+    try {
+      const prevQ = ask.msgs.filter((m) => m.role === 'user').slice(-2).map((m) => m.content).join(' ');
+      const picked = retrieve(ask.list, prevQ);
+      const byVideo = new Map();
+      for (const c of picked) { if (!byVideo.has(c.v)) byVideo.set(c.v, []); byVideo.get(c.v).push(c); }
+      const sources = [...byVideo.entries()].map(([v, cs]) => `### V${v + 1} · "${ask.list[v].title || ask.list[v].videoId}"\n${cs.sort((a, b) => (a.t ?? 0) - (b.t ?? 0)).map((c) => `${c.t != null ? `[${U.formatTime(c.t)}] ` : ''}(${c.src}) ${c.text}`).join('\n')}`).join('\n\n');
+      const catalog = ask.list.slice(0, 120).map((r, i) => `V${i + 1}: "${r.title || r.videoId}" — ${r.author || 'canal desconocido'} — ${fmtDate(r.updatedAt || r.createdAt)}${tldrOf(r) ? ` — ${tldrOf(r)}` : ''}`).join('\n');
+      const settingsNow = await SubmeSettings.getSettings();
+      const system = SubmePrompts.buildLibrarySystemPrompt({ sources: sources || '(sin fragmentos relevantes)', catalog, responseLanguage: settingsNow.responseLanguage === 'video' ? 'es' : settingsNow.responseLanguage });
+      const history = ask.msgs.filter((m) => m !== reply && !m.error && m.content).map((m) => ({ role: m.role, content: m.content })).slice(-8);
+      let pending = false;
+      ask.stream = SN.ai.stream({ system, messages: history }, (_d, full) => {
+        reply.content = full;
+        if (pending) return;
+        pending = true;
+        requestAnimationFrame(() => { pending = false; renderAsk(); });
+      });
+      const r = await ask.stream.promise;
+      reply.content = r.text || (r.aborted ? '_Respuesta detenida._' : '');
+    } catch (e) {
+      reply.error = e.message;
+      reply.locked = e.code === 'LOCKED';
+    } finally {
+      ask.busy = false;
+      ask.stream = null;
+      $('askSend').disabled = false;
+      renderAsk();
+    }
+  }
+
   /* ---------- eventos ---------- */
 
   let searchTimer = null;
@@ -561,7 +729,8 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      if (!$('review').hidden) closeReview();
+      if (!$('ask').hidden) closeAsk();
+      else if (!$('review').hidden) closeReview();
       else if (!$('detail').hidden) closeDetail();
       return;
     }
@@ -571,6 +740,20 @@
   });
 
   $('reviewBtn').addEventListener('click', () => openReview(false));
+  $('askBtn').innerHTML = `${I('chat')}Preguntar`;
+  $('askBtn').title = 'Pregúntale a toda tu biblioteca: responde citando el video y el minuto';
+  $('askIcon').innerHTML = I('sparkles');
+  $('askClose').innerHTML = I('close');
+  $('askBtn').addEventListener('click', openAsk);
+  $('askClose').addEventListener('click', closeAsk);
+  $('ask').addEventListener('click', (e) => {
+    if (e.target === $('ask')) { closeAsk(); return; }
+    const sug = e.target.closest('#askSuggest button');
+    if (sug) { sendAsk(sug.textContent); return; }
+    if (e.target.closest('[data-unlock]')) chrome.runtime.sendMessage({ type: 'openUnlock' });
+  });
+  $('askForm').addEventListener('submit', (e) => { e.preventDefault(); sendAsk($('askInput').value); });
+  $('askInput').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAsk($('askInput').value); } });
   $('exportBtn').addEventListener('click', (e) => { e.stopPropagation(); $('exportMenu').hidden = !$('exportMenu').hidden; });
   document.addEventListener('click', () => { $('exportMenu').hidden = true; });
   $('exportMenu').addEventListener('click', (e) => {
