@@ -222,3 +222,14 @@ export const LINES_EN = [
   'To sum up: daily exposure, speaking from day one and spaced repetition.',
   'If this helped, tell me in the comments which language you are learning.',
 ];
+
+/** Otros videos de ejemplo para las capturas de la biblioteca. */
+export const LIBRARY_DEMO = [
+  { videoId: 'libDemo0001', title: 'Finanzas personales: la regla 50/30/20 explicada', author: 'Dinero Claro', lengthSeconds: 845, thumb: 'Regla 50/30/20', days: 1, fav: true, tags: ['finanzas'], results: ['summary', 'flashcards', 'quiz'] },
+  { videoId: 'libDemo0002', title: 'Introducción a la fotosíntesis para estudiantes', author: 'Ciencia en 10 minutos', lengthSeconds: 612, thumb: 'Fotosíntesis', days: 2, tags: ['biología', 'examen'], results: ['notes', 'mindmap', 'flashcards'] },
+  { videoId: 'libDemo0003', title: 'Cómo dar una charla sin nervios: técnicas de oratoria', author: 'Habla Mejor', lengthSeconds: 1290, thumb: 'Oratoria sin nervios', days: 4, results: ['keypoints', 'steps'], chat: true },
+  { videoId: 'libDemo0004', title: 'Receta de pan casero con masa madre paso a paso', author: 'Cocina Simple', lengthSeconds: 1034, thumb: 'Pan de masa madre', days: 6, fav: true, results: ['steps', 'summary'] },
+  { videoId: 'libDemo0005', title: 'Historia de Roma en 20 minutos', author: 'Historia Visual', lengthSeconds: 1210, thumb: 'Historia de Roma', days: 9, tags: ['historia'], results: ['chapters', 'quiz', 'mindmap'] },
+  { videoId: 'libDemo0006', title: 'Productividad: el método de bloques de tiempo', author: 'Foco Diario', lengthSeconds: 498, thumb: 'Bloques de tiempo', days: 14, results: ['summary', 'quotes'], aiTranscript: true },
+  { videoId: 'libDemo0007', title: 'Estiramientos de 10 minutos para la espalda', author: 'Moverse Bien', lengthSeconds: 640, thumb: 'Espalda sana', days: 21, results: ['steps'], short: true },
+];
