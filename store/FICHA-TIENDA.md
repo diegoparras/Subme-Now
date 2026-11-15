@@ -52,6 +52,7 @@ EN VIVO, SOBRE EL VIDEO
 • Subtítulos dobles: el idioma original y la traducción, uno arriba del otro, incluso en pantalla completa. Ideal para aprender idiomas.
 • Podcast: el video convertido en una charla entre dos presentadores, leída con dos voces distintas.
 • ¿Qué quiso decir acá?: pregúntale por cualquier línea de la transcripción.
+• Leer la pantalla: captura lo que se ve en el video (diapositivas, código o gráficos) y la IA lo lee y te lo explica.
 
 TU BIBLIOTECA
 • Pregúntale a tu biblioteca: un chat que busca en todo lo que guardaste y responde citando el video y el minuto.
@@ -132,6 +133,7 @@ LIVE, ON THE VIDEO
 • Dual subtitles: the original language and the translation, one above the other, even in full screen. Great for learning languages.
 • Podcast: the video turned into a conversation between two hosts, read aloud with two different voices.
 • What did they mean here?: ask about any line of the transcript.
+• Read the screen: capture what's on the video (slides, code or charts) and AI reads it and explains it.
 
 YOUR LIBRARY
 • Ask your library: a chat that searches everything you saved and answers citing the video and the minute.
@@ -174,7 +176,7 @@ Subme Now is not affiliated with YouTube or Google.
 | Campo del dashboard | Archivo | Tamaño |
 |---|---|---|
 | Ícono de la tienda | `icons/icon128.png` | 128×128 |
-| Capturas de pantalla (hasta 5) | `store/screenshots/1-…` a `5-…` (de la 6 a la 15 son opcionales; no subas la 15, que muestra nombres de proveedores) | 1280×800 |
+| Capturas de pantalla (hasta 5) | `store/screenshots/1-…` a `5-…` (de la 6 a la 16 son opcionales; no subas la 15, que muestra nombres de proveedores) | 1280×800 |
 | Mosaico promocional pequeño | `store/promo-small-440x280.png` | 440×280 |
 | Marquesina (opcional) | `store/marquee-1400x560.png` | 1400×560 |
 

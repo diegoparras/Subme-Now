@@ -34,6 +34,7 @@ Sin servidores intermedios: la transcripción sale directo de YouTube y las cons
 - **Modo estudio**: el video se pausa al terminar cada tema y te hace una pregunta sobre lo que acabas de ver. Si fallas, **Repasar** te lleva al inicio de esa parte.
 - **Subtítulos dobles**: el idioma original y la traducción, uno arriba del otro, sobre el video (también en pantalla completa). Usa la traducción automática de YouTube, que es gratis, o la IA si no está disponible (y la guarda).
 - **Podcast**: la IA convierte el video en una charla entre dos presentadores y la lee con dos voces distintas del sistema.
+- **Leer la pantalla** (v1.7.1): el botón de cámara captura el fotograma actual del video y lo adjunta al chat; la IA lee el texto, el código, las diapositivas o los gráficos con el contexto de lo que se dice en ese momento. También se puede descargar la imagen. Atajo configurable en `chrome://extensions/shortcuts`. Los videos con protección (DRM) no se pueden capturar.
 - **"¿Qué quiso decir acá?"**: pasa el mouse sobre cualquier línea de la transcripción y pregúntale al chat por ese momento.
 - **Pregúntale a tu biblioteca**: un chat que busca en todo lo que guardaste (resúmenes, chats y transcripciones) y responde citando el video y el minuto.
 

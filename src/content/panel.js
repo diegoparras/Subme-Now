@@ -18,6 +18,7 @@
   <header class="sn-header" data-act="toggle">
     <div class="sn-brand"><span class="sn-logo">S</span>Subme Now <span class="sn-sub" data-ref="sub"></span></div>
     <div class="sn-header-actions">
+      <button class="sn-icon-btn" data-act="capture" title="Capturar la pantalla del video y preguntarle a la IA qué se ve">${I('camera')}</button>
       <button class="sn-icon-btn" data-act="library" title="Biblioteca: todo lo que guardaste">${I('library')}</button>
       <button class="sn-icon-btn" data-act="sidepanel" title="Abrir en el panel lateral de Chrome">${I('sidebar')}</button>
       <button class="sn-icon-btn" data-act="settings" title="Configuración">${I('settings')}</button>
@@ -122,7 +123,9 @@
     <section class="sn-pane" data-pane="chat" hidden>
       <div class="sn-chat-log" data-ref="chatlog"></div>
       <div class="sn-suggestions" data-ref="suggestions"></div>
+      <div class="sn-attach" data-ref="attach" hidden></div>
       <form class="sn-chat-form" data-ref="chatform">
+        <button class="sn-icon-btn sn-cam" type="button" data-act="capture" title="Capturar la pantalla del video">${I('camera')}</button>
         <textarea class="sn-textarea" data-ref="chatinput" rows="2" placeholder="Pregunta algo sobre el video… (Enter para enviar)"></textarea>
         <button class="sn-btn primary" type="submit" data-ref="chatsend">Enviar</button>
       </form>
@@ -183,6 +186,7 @@
       this.transcriptSaved = false;
       this.historyPromise = Promise.resolve(null);
       this.live?.destroy();
+      this.attachment = null;
       this.studyOn = false;
       this.dualKey = '';
       this.dualToken = (this.dualToken || 0) + 1;
@@ -706,6 +710,17 @@
           this.currentAction = null;
           this.renderActions();
           break;
+        case 'capture':
+          this.attachFrame();
+          break;
+        case 'unattach':
+          this.attachment = null;
+          this.renderAttachment();
+          this.renderChat();
+          break;
+        case 'dlframe':
+          this.downloadFrame();
+          break;
         case 'dualsubs':
           this.patchSettings({ dualSubs: !this.settings.dualSubs });
           this.shadow.querySelector('[data-act="dualsubs"]').classList.toggle('on', !!this.settings.dualSubs);
@@ -1186,6 +1201,7 @@
       if (command === 'toggle-panel') this.handleAct('toggle');
       if (command === 'run-summary') this.runAction(this.findAction('summary'));
       if (command === 'run-mindmap') this.runAction(this.findAction('mindmap'));
+      if (command === 'read-screen') this.attachFrame();
       if (command === 'open-chat') { this.switchTab('chat'); this.refs.chatinput.focus({ preventScroll: true }); }
     }
 
@@ -1483,7 +1499,7 @@
       const send = (m) => { try { port.postMessage(m); } catch { /* ventana cerrada */ } };
       let last = 0;
       const timeFn = (t) => { const now = Date.now(); if (now - last < 250) return; last = now; send({ type: 'time', t }); };
-      const chatFn = () => send({ type: 'chat', chat: this.chat.map((m) => ({ role: m.role, content: m.content, error: typeof m.error === 'string' ? m.error : '' })) });
+      const chatFn = () => send({ type: 'chat', chat: this.chat.map((m) => ({ role: m.role, content: m.content, image: m.image || '', t: m.t, error: typeof m.error === 'string' ? m.error : '' })) });
       this.timeListeners.add(timeFn);
       this.chatSurfaces.add(chatFn);
       chatFn();
@@ -1517,6 +1533,52 @@
         this.sidePorts.delete(port);
         if (!this.sidePorts.size) { this.host.style.display = ''; this.remoteLiveState = null; this.applyLive(); }
       });
+    }
+
+    /* ---------- captura y lectura de la pantalla ---------- */
+
+    async captureFrame() {
+      this.attachVideo();
+      return SN.capture.frame(this.findVideoElement() || this.videoEl);
+    }
+
+    /** Captura el fotograma actual y lo adjunta a la próxima pregunta del chat. */
+    async attachFrame() {
+      if (!this.videoId) return;
+      try {
+        this.attachment = await this.captureFrame();
+        this.switchTab('chat');
+        this.renderAttachment();
+        this.renderChat();
+        this.refs.chatinput.focus({ preventScroll: true });
+        this.toast(`Pantalla capturada (${U.formatTime(this.attachment.t)})`);
+      } catch (e) {
+        this.toast(e.message);
+        this.switchTab('chat');
+        this.refs.attach.hidden = false;
+        this.refs.attach.innerHTML = `<div class="sn-error">${I('alert')} ${U.escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    renderAttachment() {
+      const a = this.attachment;
+      const box = this.refs.attach;
+      box.hidden = !a;
+      box.innerHTML = a ? `<img src="${U.escapeHtml(a.thumb)}" alt="Captura">
+        <div class="sn-attach-info"><b>${I('camera')}Pantalla en ${U.formatTime(a.t)}</b><span>Escribe tu pregunta o elige una sugerencia</span></div>
+        <button class="sn-icon-btn" type="button" data-act="dlframe" title="Descargar la imagen">${I('download')}</button>
+        <button class="sn-icon-btn" type="button" data-act="unattach" title="Quitar la captura">${I('close')}</button>` : '';
+    }
+
+    downloadFrame() {
+      const a = this.attachment;
+      if (!a) return;
+      const link = document.createElement('a');
+      link.href = a.dataUrl;
+      link.download = `${U.safeFilename(this.video?.title)} - ${U.formatTime(a.t).replace(/:/g, '-')}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     }
 
     /* ---------- funciones en vivo ---------- */
@@ -1695,23 +1757,28 @@
         this.refs.suggestions.innerHTML = P.CHAT_SUGGESTIONS.map((s) => `<button class="sn-chip" type="button">${U.escapeHtml(s)}</button>`).join('');
       } else {
         log.innerHTML = this.chat.map((m) => (m.role === 'user'
-          ? `<div class="sn-msg user">${U.escapeHtml(m.content)}</div>`
+          ? `<div class="sn-msg user">${m.image ? `<img class="sn-msg-img" src="${U.escapeHtml(m.image)}" alt="Captura de la pantalla del video">` : ''}${m.image && m.t != null ? `<a class="sn-ts sn-msg-ts" data-t="${m.t}" href="#">${U.formatTime(m.t)}</a> ` : ''}${U.escapeHtml(m.content)}</div>`
           : `<div class="sn-msg assistant md">${m.locked ? this.lockedHtml(m.error) : m.error ? `<div class="sn-error">${I('alert')} ${U.escapeHtml(m.error)}</div>` : MD.render(m.content) || '<div class="sn-progress"><span class="sn-spinner"></span>Pensando…</div>'}</div>`)).join('');
-        this.refs.suggestions.innerHTML = '';
+        this.refs.suggestions.innerHTML = this.attachment ? P.SCREEN_SUGGESTIONS.map((s) => `<button class="sn-chip" type="button">${U.escapeHtml(s)}</button>`).join('') : '';
       }
+      if (!this.chat.length && this.attachment) this.refs.suggestions.innerHTML = P.SCREEN_SUGGESTIONS.map((s) => `<button class="sn-chip" type="button">${U.escapeHtml(s)}</button>`).join('');
       log.scrollTop = log.scrollHeight;
       this.chatSurfaces?.forEach((fn) => fn());
     }
 
     async sendChat(text, { keepTab = false } = {}) {
       text = String(text || '').trim();
+      const shot = this.attachment;
+      if (!text && shot) text = 'Lee y explícame lo que aparece en la pantalla.';
       if (!text || this.chatBusy) return;
       if (!keepTab) this.switchTab('chat');
       if (!this.segments.length) { this.toast('No hay transcripción disponible'); return; }
       if (!this.hasKey()) { this.toast('Configura una API key primero'); handleSettings(); return; }
 
       this.refs.chatinput.value = '';
-      this.chat.push({ role: 'user', content: text });
+      this.chat.push(shot ? { role: 'user', content: text, image: shot.thumb, t: shot.t } : { role: 'user', content: text });
+      this.attachment = null;
+      this.renderAttachment();
       const reply = { role: 'assistant', content: '' };
       this.chat.push(reply);
       this.renderChat();
@@ -1723,7 +1790,17 @@
         await this.ensureContext((msg) => { reply.content = `_${msg}_`; this.renderChat(); });
         reply.content = '';
         if (myToken !== this.loadToken) return;
-        const history = this.chat.filter((m) => m !== reply && !m.error).map((m) => ({ role: m.role, content: m.content }));
+        const history = this.chat.filter((m) => m !== reply && !m.error).map((m) => ({
+          role: m.role,
+          content: m.image ? `${m.content}\n\n[Adjuntó una captura de la pantalla del video en ${U.formatTime(m.t || 0)}]` : m.content,
+        }));
+        if (shot) {
+          // La imagen completa va solo en la pregunta actual (las anteriores quedan como referencia en texto).
+          const said = this.segments.filter((x) => x.start >= shot.t - 12 && x.start <= shot.t + 4).map((x) => x.text).join(' ');
+          const last = history[history.length - 1];
+          last.content = `${text}\n\n(Captura de la pantalla del video en [${U.formatTime(shot.t)}].${said ? ` En ese momento se dice: "${said}"` : ''})`;
+          last.images = [shot.dataUrl];
+        }
         let pending = false;
         this.stream = SN.ai.stream({ system: this.systemPrompt(true), messages: history }, (_d, full) => {
           reply.content = full;
@@ -1733,7 +1810,7 @@
         });
         const r = await this.stream.promise;
         reply.content = r.text || (r.aborted ? '_Respuesta detenida._' : '');
-        if (myToken === this.loadToken && r.text) this.saveHistory({ chat: this.chat.filter((m) => !m.error && m.content) });
+        if (myToken === this.loadToken && r.text) this.saveHistory({ chat: this.chat.filter((m) => !m.error && m.content).map((m) => ({ role: m.role, content: m.content, image: m.image, t: m.t })) });
       } catch (e) {
         reply.error = e.message;
         reply.locked = e.code === 'LOCKED';

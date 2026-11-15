@@ -73,6 +73,11 @@
       super.handleAct(act);
     }
 
+    /** El fotograma se captura en la pestaña, que es la que tiene el video. */
+    captureFrame() {
+      return remote('captureFrame');
+    }
+
     /** Las funciones en vivo corren en el reproductor de la pestaña: se le envía el estado. */
     pushLive(st) {
       try { port?.postMessage({ type: 'live', state: st }); } catch { /* pestaña cerrada */ }

@@ -24,6 +24,7 @@ const check = (name, ok, extra = '') => { results.push({ name, ok }); console.lo
 const requests = [];
 const geminiRequests = [];
 const libraryPrompts = [];
+const visionRequests = [];
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', '*');
@@ -51,7 +52,14 @@ const server = http.createServer((req, res) => {
     const json = JSON.parse(body || '{}');
     requests.push(json);
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
-    const last = json.messages.at(-1).content;
+    const lastRaw = json.messages.at(-1).content;
+    const last = Array.isArray(lastRaw) ? lastRaw.map((p) => p.text || '').join(' ') : lastRaw;
+    if (Array.isArray(lastRaw) && lastRaw.some((p) => p.type === 'image_url')) {
+      visionRequests.push(json);
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: 'En pantalla dice: **HOLA PANTALLA**.' } }] })}\n\ndata: [DONE]\n\n`);
+      res.end();
+      return;
+    }
     const STRUCT = {
       '"segments"': { segments: [{ start: '00:00', end: '00:04', kind: 'intro', label: 'Saludo inicial' }, { start: '00:09', end: '00:13', kind: 'sponsor', label: 'Patrocinio de prueba' }] },
       '"checkpoints"': { checkpoints: [{ from: '00:00', t: '00:06', q: '¿Qué hace el autor al inicio?', options: ['Saluda', 'Se despide', 'Canta'], answer: 0, explanation: 'Saluda a todos.' }] },
@@ -1097,6 +1105,47 @@ try {
   check('Biblioteca: responde citando el video y el minuto', cite.includes(`v=${VIDEO_ID}`) && cite.includes('t=8s'), cite);
   check('Biblioteca: la IA recibe fragmentos y el catálogo de tus videos', libraryPrompts.at(-1).includes('V1: "Video de prueba"') && libraryPrompts.at(-1).includes('<fuentes>'));
   await lib2.close();
+
+  // ---------- v1.7.1: captura y lectura de la pantalla ----------
+  await page.bringToFront();
+  await page.locator('#subme-now-host .sn-header [data-act="capture"]').click();
+  await page.locator('#subme-now-host [data-ref="attach"] .sn-error').waitFor({ timeout: 5000 });
+  check('Captura: avisa si el video todavía no tiene imagen', (await page.locator('#subme-now-host [data-ref="attach"]').textContent()).includes('todavía no cargó'));
+  // Un "video" real: una animación de canvas como fuente del reproductor.
+  await page.evaluate(async () => {
+    const c = document.createElement('canvas');
+    c.width = 640; c.height = 360;
+    const ctx = c.getContext('2d');
+    const paint = () => { ctx.fillStyle = '#1d2a6b'; ctx.fillRect(0, 0, 640, 360); ctx.fillStyle = '#fff'; ctx.font = 'bold 56px sans-serif'; ctx.fillText('HOLA PANTALLA', 60, 200); };
+    paint();
+    window.__paint = setInterval(paint, 100);
+    const v = document.querySelector('video');
+    v.srcObject = c.captureStream(10);
+    await v.play().catch(() => {});
+    for (let i = 0; i < 50 && v.readyState < 2; i++) await new Promise((r) => setTimeout(r, 100));
+  });
+  await page.locator('#subme-now-host .sn-header [data-act="capture"]').click();
+  await page.locator('#subme-now-host [data-ref="attach"] img').waitFor({ timeout: 5000 });
+  check('Captura: adjunta la pantalla al chat con su minuto', (await page.locator('#subme-now-host [data-ref="attach"]').textContent()).includes('Pantalla en'));
+  check('Captura: sugerencias para leer la pantalla', (await page.locator('#subme-now-host [data-ref="suggestions"] .sn-chip').allInnerTexts()).includes('Lee todo el texto que aparece en pantalla'));
+  const visBefore = visionRequests.length;
+  await page.locator('#subme-now-host [data-ref="suggestions"] .sn-chip', { hasText: 'Lee todo el texto' }).click();
+  await page.locator('#subme-now-host .sn-msg.assistant', { hasText: 'HOLA PANTALLA' }).waitFor({ timeout: 10000 });
+  const vis = visionRequests.at(-1);
+  const visUser = vis?.messages.at(-1).content || [];
+  check('Captura: la imagen se envía a la IA con el contexto del momento', visionRequests.length === visBefore + 1
+    && visUser.some((p) => p.type === 'image_url' && p.image_url.url.startsWith('data:image/jpeg;base64,'))
+    && visUser.some((p) => p.type === 'text' && p.text.includes('Captura de la pantalla del video en')));
+  check('Captura: la miniatura queda en la conversación', await page.locator('#subme-now-host .sn-msg.user img.sn-msg-img').count() >= 1 && await page.locator('#subme-now-host [data-ref="attach"]').isHidden());
+  await page.waitForTimeout(500);
+  const recCap = (await opts.evaluate((id) => chrome.runtime.sendMessage({ type: 'historyGet', videoId: id }), VIDEO_ID)).record;
+  check('Captura: se guarda en el historial (miniatura)', recCap.chat.some((m) => m.image?.startsWith('data:image/jpeg')));
+  // Siguiente pregunta: la imagen anterior no se vuelve a enviar.
+  await page.locator('#subme-now-host [data-ref="chatinput"]').fill('¿Y qué más?');
+  await page.locator('#subme-now-host [data-ref="chatinput"]').press('Enter');
+  await page.waitForTimeout(1200);
+  check('Captura: las preguntas siguientes no reenvían la imagen', typeof requests.at(-1).messages.at(-1).content === 'string' && JSON.stringify(requests.at(-1)).indexOf('image_url') < 0);
+  await page.evaluate(() => { clearInterval(window.__paint); const v = document.querySelector('video'); v.pause(); v.srcObject = null; });
 
   check('Sin errores en la consola', errors.length === 0, errors.join(' | '));
 } finally {

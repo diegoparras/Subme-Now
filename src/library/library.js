@@ -322,7 +322,7 @@
 
     if (key === 'chat') {
       wrap.innerHTML = `<div class="sn-chat-log">${rec.chat.map((m) => (m.role === 'user'
-        ? `<div class="sn-msg user">${esc(m.content)}</div>` : `<div class="sn-msg assistant md">${MD.render(m.content)}</div>`)).join('')}</div>`;
+        ? `<div class="sn-msg user">${m.image ? `<img class="sn-msg-img" src="${esc(m.image)}" alt="Captura de la pantalla">` : ''}${m.image && m.t != null ? `<a class="sn-ts sn-msg-ts" data-t="${Number(m.t)}" href="#">${U.formatTime(m.t)}</a> ` : ''}${esc(m.content)}</div>` : `<div class="sn-msg assistant md">${MD.render(m.content)}</div>`)).join('')}</div>`;
       return;
     }
     if (key === 'transcript') {

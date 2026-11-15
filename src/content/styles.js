@@ -354,6 +354,19 @@ a.sn-ts:hover { text-decoration: underline; }
 .sn-dual .sn-combo { flex: 0 1 200px; }
 .compact .sn-live-main { padding: 3px 2px; }
 
+/* Captura de la pantalla del video */
+.sn-attach { display: flex; align-items: center; gap: 10px; padding: 6px; margin: 0 0 6px; border: 1px solid var(--sn-accent); border-radius: 10px; background: var(--sn-accent-soft); }
+.sn-attach img { width: 84px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; flex: none; background: #000; }
+.sn-attach-info { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 12.5px; }
+.sn-attach-info b { display: inline-flex; align-items: center; gap: 5px; }
+.sn-attach-info b .sn-i { color: var(--sn-accent); }
+.sn-attach-info span { color: var(--sn-fg-2); }
+.sn-attach .sn-error { flex: 1; margin: 0; }
+.sn-cam { align-self: flex-end; height: 38px; width: 34px; flex: none; }
+.sn-msg-img { display: block; width: 100%; max-width: 280px; border-radius: 8px; margin: 0 0 6px auto; }
+.sn-msg-ts { margin-right: 4px; }
+.sn-msg.user .sn-msg-ts { background: rgba(255,255,255,.22); color: inherit; }
+
 /* Panel lateral de Chrome */
 :host([data-mode="side"]) { margin: 0; height: 100vh; }
 :host([data-mode="side"]) .sn-wrap { height: 100%; }
