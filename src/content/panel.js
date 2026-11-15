@@ -8,7 +8,7 @@
     openrouter: 'OpenRouter', openai: 'OpenAI', grok: 'Grok (xAI)', anthropic: 'Anthropic', gemini: 'Gemini', custom: 'Personalizado',
   };
   const DEFAULT_MODELS = {
-    openrouter: 'openrouter/auto', openai: 'gpt-5-mini', grok: 'grok-4', anthropic: 'claude-opus-5-5', gemini: 'gemini-2.5-flash', custom: '',
+    openrouter: 'openrouter/auto', openai: 'gpt-6-luna', grok: 'grok-4.3', anthropic: 'claude-haiku-5-5', gemini: 'gemini-4-hydrogen', custom: '',
   };
 
   const I = (name, cls) => SubmeIcons.icon(name, cls);

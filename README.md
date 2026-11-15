@@ -111,10 +111,10 @@ Además:
 | Proveedor | Enlace | Modelo por defecto |
 |---|---|---|
 | OpenRouter | https://openrouter.ai/keys | `openrouter/auto` |
-| OpenAI | https://platform.openai.com/api-keys | `gpt-5-mini` |
-| Grok (xAI) | https://console.x.ai | `grok-4` |
-| Anthropic | https://console.anthropic.com/settings/keys | `claude-opus-5-5` |
-| Google Gemini | https://aistudio.google.com/apikey | `gemini-2.5-flash` |
+| OpenAI | https://platform.openai.com/api-keys | `gpt-6-luna` |
+| Grok (xAI) | https://console.x.ai | `grok-4.3` |
+| Anthropic | https://console.anthropic.com/settings/keys | `claude-haiku-5-5` |
+| Google Gemini | https://aistudio.google.com/apikey | `gemini-4-hydrogen` |
 | Personalizado | URL base compatible con OpenAI (p. ej. `http://localhost:11434/v1` para Ollama) | el que indiques |
 
 En cada proveedor puedes escribir otro modelo o pulsar **Cargar modelos** para elegir de la lista real de tu cuenta.

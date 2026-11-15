@@ -166,6 +166,8 @@ try {
   if (!opts.url().includes('options.html')) await opts.goto(`chrome-extension://${extId}/src/options/options.html`);
   await opts.waitForSelector('.provider');
   check('Opciones: 6 proveedores', (await opts.locator('.provider').count()) === 6);
+  const cards = (await opts.locator('.provider').allInnerTexts()).join(' | ');
+  check('Opciones: modelos predeterminados actualizados', ['gpt-6-luna', 'grok-4.3', 'claude-haiku-5-5', 'gemini-4-hydrogen'].every((m) => cards.includes(m)), cards);
   await opts.evaluate(async (api) => {
     const { settings = {} } = await chrome.storage.local.get('settings');
     settings.provider = 'custom';
@@ -841,7 +843,7 @@ try {
   check('Transcribir con IA sin clave de Gemini: pide configurarla', geminiRequests.length === 0);
   await opts.evaluate(async (api) => {
     const { settings } = await chrome.storage.local.get('settings');
-    settings.providers.gemini = { apiKey: 'g-key-de-prueba', model: 'gemini-2.5-flash', baseUrl: api };
+    settings.providers.gemini = { apiKey: 'g-key-de-prueba', model: '', baseUrl: api };
     await chrome.storage.local.set({ settings });
   }, API);
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
@@ -852,7 +854,7 @@ try {
   await page.locator('#subme-now-host [data-act="transcribe"]').click({ timeout: 10000 });
   await page.waitForFunction(() => document.querySelector('#subme-now-host').shadowRoot.querySelectorAll('.sn-seg').length === 3, null, { timeout: 10000 });
   const g = geminiRequests.at(-1);
-  check('Gemini recibe la URL del video de YouTube', g && g.body.contents[0].parts[0].file_data.file_uri === 'https://www.youtube.com/watch?v=NOSUBS0001' && g.key === 'g-key-de-prueba' && g.url.includes('gemini-2.5-flash'));
+  check('Gemini recibe la URL del video de YouTube', g && g.body.contents[0].parts[0].file_data.file_uri === 'https://www.youtube.com/watch?v=NOSUBS0001' && g.key === 'g-key-de-prueba' && g.url.includes('gemini-4-hydrogen') && !g.body.generationConfig.thinkingConfig);
   const aiTr = await page.evaluate(() => {
     const sh = document.querySelector('#subme-now-host').shadowRoot;
     return { lang: sh.querySelector('[data-ref="lang"]').selectedOptions[0]?.textContent, first: sh.querySelector('.sn-seg').textContent, second: sh.querySelectorAll('.sn-seg')[1].dataset.t };
