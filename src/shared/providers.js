@@ -15,7 +15,7 @@
       label: 'OpenAI',
       type: 'openai',
       baseUrl: 'https://api.openai.com/v1',
-      defaultModel: 'gpt-5-mini',
+      defaultModel: 'gpt-6-luna',
       keyUrl: 'https://platform.openai.com/api-keys',
       hint: 'Modelos GPT de OpenAI.',
     },
@@ -24,7 +24,7 @@
       label: 'Grok (xAI)',
       type: 'openai',
       baseUrl: 'https://api.x.ai/v1',
-      defaultModel: 'grok-4',
+      defaultModel: 'grok-4.3',
       keyUrl: 'https://console.x.ai',
       hint: 'Modelos Grok de xAI.',
     },
@@ -33,7 +33,7 @@
       label: 'Anthropic (Claude)',
       type: 'anthropic',
       baseUrl: 'https://api.anthropic.com/v1',
-      defaultModel: 'claude-opus-5-5',
+      defaultModel: 'claude-haiku-5-5',
       keyUrl: 'https://console.anthropic.com/settings/keys',
       hint: 'Modelos Claude de Anthropic.',
     },
@@ -42,7 +42,7 @@
       label: 'Google Gemini',
       type: 'gemini',
       baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-      defaultModel: 'gemini-2.5-flash',
+      defaultModel: 'gemini-4-hydrogen',
       keyUrl: 'https://aistudio.google.com/apikey',
       hint: 'Modelos Gemini de Google AI Studio.',
     },
@@ -250,7 +250,7 @@
    * (solo videos públicos). Usa resolución de video baja para gastar menos tokens.
    */
   function buildTranscribeRequest(cfg, videoUrl) {
-    const model = (cfg.model || 'gemini-2.5-flash').replace(/^models\//, '');
+    const model = (cfg.model || 'gemini-4-hydrogen').replace(/^models\//, '');
     const generationConfig = { temperature: 0, maxOutputTokens: 65536, mediaResolution: 'MEDIA_RESOLUTION_LOW' };
     if (/^gemini-2\.5-flash/.test(model)) generationConfig.thinkingConfig = { thinkingBudget: 0 };
     const body = {
