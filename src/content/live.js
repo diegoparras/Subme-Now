@@ -88,7 +88,8 @@
       markers = null;
       const p = player();
       const bar = p?.querySelector('.ytp-progress-bar');
-      const dur = Number(getVideo()?.duration) || lengthSeconds();
+      const d = Number(getVideo()?.duration);
+      const dur = Number.isFinite(d) && d > 0 ? d : lengthSeconds(); // transmisiones: duración infinita
       if (!bar || !dur || !isFinite(dur) || !skip.segs.length) return;
       markers = document.createElement('div');
       markers.className = 'subme-skip-markers';

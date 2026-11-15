@@ -7,3 +7,8 @@ dist/
 marketing/linkedin/*.png
 marketing/linkedin/*.pdf
 marketing/vistas/*.png
+marketing/linkedin-v17/**/*.png
+marketing/linkedin-v17/**/*.pdf
+marketing/linkedin-v17/*.mp4
+marketing/linkedin-v17/*.wav
+marketing/linkedin-v17/capturas/*.json
