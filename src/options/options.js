@@ -438,7 +438,7 @@
   /* ---------- atajos de teclado ---------- */
 
   async function renderShortcuts() {
-    const names = { 'run-summary': 'Resumir el video', 'run-mindmap': 'Mapa mental', 'toggle-panel': 'Mostrar u ocultar el panel', 'open-chat': 'Abrir el chat' };
+    const names = { 'run-summary': 'Resumir el video', 'run-mindmap': 'Mapa mental', 'toggle-panel': 'Mostrar u ocultar el panel', 'open-chat': 'Abrir el chat', 'read-screen': 'Capturar y leer la pantalla del video' };
     let cmds = [];
     try { cmds = await chrome.commands.getAll(); } catch { /* noop */ }
     const order = Object.keys(names);

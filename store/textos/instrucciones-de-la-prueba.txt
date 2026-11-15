@@ -8,6 +8,7 @@ Cómo probar Subme Now:
 7. Panel lateral: el botón con forma de panel (junto al libro) o el ícono de la extensión en la barra abren Subme Now en el panel lateral de Chrome, que sigue al video de la pestaña activa.
 8. Videos sin subtítulos: el panel ofrece "Transcribir con IA". Requiere una API key de Gemini configurada por el usuario; el video debe ser público.
 9. Funciones en vivo (pestaña IA, arriba de las acciones): "Saltar lo que sobra" detecta patrocinios, intros y relleno, los marca en la barra de progreso y los salta (con "Deshacer"); "Modo estudio" pausa el video al final de cada tema y hace una pregunta. En la pestaña Transcripción, "Doble" muestra subtítulos en dos idiomas sobre el video (usa la traducción automática de YouTube cuando existe). La acción "Podcast" lee el video como una charla entre dos voces del sistema. Al pasar el mouse sobre una línea de la transcripción aparece "¿Qué quiso decir acá?".
-10. En la Biblioteca, "Preguntar" abre un chat que busca en todo lo guardado y cita el video y el minuto de cada dato.
-11. Atajos de teclado: Alt+Shift+S resumir, Alt+Shift+M mapa mental, Alt+Shift+Y mostrar u ocultar el panel, Alt+Shift+K chat.
-12. Opcional: en Opciones se puede cambiar el color de la interfaz (también cambia el logo) y cifrar las claves con contraseña, secuencia de imágenes o patrón.
+10. Leer la pantalla: el botón de cámara (en la cabecera del panel o junto al chat) captura el fotograma actual del video y lo adjunta al chat para que la IA lea el texto, el código o los gráficos. Requiere un modelo con visión.
+11. En la Biblioteca, "Preguntar" abre un chat que busca en todo lo guardado y cita el video y el minuto de cada dato.
+12. Atajos de teclado: Alt+Shift+S resumir, Alt+Shift+M mapa mental, Alt+Shift+Y mostrar u ocultar el panel, Alt+Shift+K chat.
+13. Opcional: en Opciones se puede cambiar el color de la interfaz (también cambia el logo) y cifrar las claves con contraseña, secuencia de imágenes o patrón.

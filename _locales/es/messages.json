@@ -22,5 +22,8 @@
   },
   "cmdChat": {
     "message": "Abrir el chat con el video"
+  },
+  "cmdScreen": {
+    "message": "Capturar la pantalla del video y preguntarle a la IA"
   }
 }

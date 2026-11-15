@@ -79,7 +79,14 @@
         delete r.viewStates[x.id]; // resultado nuevo: el progreso anterior ya no aplica
       }
       if (patch.removeResult) { delete r.results[patch.removeResult]; delete r.viewStates[patch.removeResult]; }
-      if (Array.isArray(patch.chat)) r.chat = patch.chat.filter((m) => m && (m.role === 'user' || m.role === 'assistant') && m.content).map((m) => ({ role: m.role, content: String(m.content) }));
+      if (Array.isArray(patch.chat)) {
+        r.chat = patch.chat.filter((m) => m && (m.role === 'user' || m.role === 'assistant') && m.content).map((m) => {
+          const out = { role: m.role, content: String(m.content) };
+          // Miniatura de la captura de pantalla (liviana); la imagen completa no se guarda.
+          if (typeof m.image === 'string' && m.image.startsWith('data:image/') && m.image.length < 250000) { out.image = m.image; out.t = Number(m.t) || 0; }
+          return out;
+        });
+      }
       if (patch.viewStates && typeof patch.viewStates === 'object') r.viewStates = { ...r.viewStates, ...patch.viewStates };
       if (patch.transcript?.segments?.length && (!r.transcript || patch.transcript.source === 'ai' || r.transcript.source !== 'ai')) {
         r.transcript = { source: patch.transcript.source || '', language: patch.transcript.language || '', segments: patch.transcript.segments.map((s) => ({ start: +s.start || 0, text: String(s.text || '') })) };

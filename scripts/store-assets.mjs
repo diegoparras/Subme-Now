@@ -112,6 +112,7 @@ const SCENES = {
   skip: { kicker: `${ICON('scissors')} Saltar lo que sobra`, title: 'El video, <em>sin relleno</em>', lead: 'La IA marca patrocinios, intros y despedidas en la barra del video y los salta por ti. Con un clic, deshaces.' },
   study: { kicker: `${ICON('graduation')} Modo estudio`, title: 'El video <em>te toma examen</em>', lead: 'Se pausa al terminar cada tema y te hace una pregunta. Si fallas, vuelves justo a la parte que lo explica.', dark: true },
   dual: { kicker: `${ICON('subtitles')} Subtítulos dobles`, title: 'Dos idiomas, <em>al mismo tiempo</em>', lead: 'El original y la traducción, uno arriba del otro, sobre el video. Ideal para aprender idiomas.', dark: true },
+  screen: { kicker: `${ICON('camera')} Leer la pantalla`, title: 'Pregúntale <em>a la imagen</em>', lead: 'Captura lo que se ve en el video (diapositivas, código o gráficos) y la IA lo lee y te lo explica con el contexto de ese momento.' },
   podcast: { kicker: `${ICON('headphones')} Podcast`, title: 'Escúchalo como <em>un podcast</em>', lead: 'Dos presentadores te explican el video en una charla natural, con voces distintas. Perfecto para caminar o manejar.' },
   shorts: { kicker: `${ICON('phone')} YouTube Shorts`, title: 'También funciona <em>en Shorts</em>', lead: 'Un panel flotante con la transcripción y todas las acciones de IA.', dark: true, shorts: true },
 };
@@ -130,7 +131,11 @@ const context = await chromium.launchPersistentContext(userDataDir, {
 let scene = 'transcript';
 let openrouterRouted = false;
 const aiText = (body) => {
-  const last = body.messages.at(-1).content;
+  const raw = body.messages.at(-1).content;
+  if (Array.isArray(raw) && raw.some((p) => p.type === 'image_url')) {
+    return 'En la diapositiva se lee:\n\n> **Los 3 pilares del método**\n> 1. Exposición diaria al idioma\n> 2. Hablar desde el primer día\n> 3. Repetición espaciada (20 palabras por día)\n\nEs el resumen visual de lo que el autor explica en este momento [01:12]: el orden importa, porque primero entrenas el oído, después la voz y al final fijas el vocabulario.';
+  }
+  const last = Array.isArray(raw) ? raw.map((p) => p.text || '').join(' ') : raw;
   if (last.includes('número|traducción')) return last.split('\n').map((l) => /^(\d+)\|/.exec(l)).filter(Boolean).map((m) => `${m[1]}|${LINES_EN[Number(m[1])] || ''}`).join('\n');
   if (body.messages[0]?.role === 'system' && body.messages[0].content.includes('biblioteca personal')) {
     return 'Tres de tus videos coinciden en la misma idea: **poco, pero todos los días**.\n\n- En el de idiomas, la clave es que *la constancia gana a la intensidad*: 30 minutos diarios rinden más que 5 horas un domingo [[V1 00:14]].\n- El de productividad propone bloques fijos en el calendario para que el hábito no dependa de la motivación [[V7]].\n- Y el de finanzas aplica lo mismo al ahorro: automatizar un porcentaje fijo cada mes [[V2]].\n\n**Para empezar hoy:** elige un solo hábito, ponle un horario y mide tu progreso una vez por mes [[V1 10:00]].';
@@ -287,6 +292,33 @@ try {
     await p.locator(`${sr} [data-act="dualsubs"]`).evaluate(() => {});
   });
   await opts.evaluate(async () => { const { settings } = await chrome.storage.local.get('settings'); settings.dualSubs = false; await chrome.storage.local.set({ settings }); });
+  await shoot('screen', async (p) => {
+    const slide = await p.evaluate(async () => {
+      const c = document.createElement('canvas');
+      c.width = 1280; c.height = 720;
+      const x = c.getContext('2d');
+      const paint = () => {
+        const g = x.createLinearGradient(0, 0, 1280, 720); g.addColorStop(0, '#1b1446'); g.addColorStop(1, '#5b2a86');
+        x.fillStyle = g; x.fillRect(0, 0, 1280, 720);
+        x.fillStyle = '#fff'; x.font = 'bold 64px Inter, Arial'; x.fillText('Los 3 pilares del método', 90, 170);
+        x.font = '44px Inter, Arial';
+        ['1. Exposición diaria al idioma', '2. Hablar desde el primer día', '3. Repetición espaciada (20 palabras/día)'].forEach((t, i) => x.fillText(t, 110, 320 + i * 100));
+        x.fillStyle = '#ff3d7f'; x.fillRect(90, 205, 220, 8);
+      };
+      paint();
+      window.__paint = setInterval(paint, 100);
+      const v = document.querySelector('video.html5-main-video');
+      v.srcObject = c.captureStream(10);
+      await v.play().catch(() => {});
+      for (let i = 0; i < 50 && v.readyState < 2; i++) await new Promise((r) => setTimeout(r, 100));
+      return c.toDataURL('image/png');
+    });
+    await p.evaluate((src) => { const el = document.querySelector('.video'); el.style.background = `url(${src}) center / cover`; el.querySelector('.play').style.display = 'none'; el.querySelector('.vt').style.display = 'none'; }, slide);
+    await p.locator(`${sr} .sn-header [data-act="capture"]`).click();
+    await p.locator(`${sr} [data-ref="suggestions"] .sn-chip`, { hasText: 'Lee todo el texto' }).click();
+    await waitOutput(p, '.sn-msg.assistant');
+    await p.waitForTimeout(1700); // que se vaya el aviso "Pantalla capturada"
+  });
   await shoot('podcast', async (p) => {
     await p.locator(`${sr} [data-tab="ai"]`).click();
     await p.locator(`${sr} [data-action="podcast"]`).click();
@@ -395,7 +427,7 @@ try {
   await lib.close();
 
   // Renombrar en orden
-  const order = { summary: '1-resumen-ia.png', skip: '2-saltar-lo-que-sobra.png', study: '3-modo-estudio.png', dual: '4-subtitulos-dobles.png', transcript: '6-transcripcion.png', chapters: '7-mapa-mental.png', podcast: '8-podcast.png', chat: '11-chat.png', shorts: '12-shorts.png' };
+  const order = { summary: '1-resumen-ia.png', skip: '2-saltar-lo-que-sobra.png', study: '3-modo-estudio.png', screen: '4-leer-la-pantalla.png', dual: '16-subtitulos-dobles.png', transcript: '6-transcripcion.png', chapters: '7-mapa-mental.png', podcast: '8-podcast.png', chat: '11-chat.png', shorts: '12-shorts.png' };
   for (const [from, to] of Object.entries(order)) fs.renameSync(path.join(SHOTS, `${from}.png`), path.join(SHOTS, to));
 
   // Imágenes promocionales

@@ -228,6 +228,14 @@ ${sources}
 </fuentes>`;
   }
 
+  /** Sugerencias cuando se adjunta una captura de la pantalla del video. */
+  const SCREEN_SUGGESTIONS = [
+    'Lee todo el texto que aparece en pantalla',
+    'Explícame lo que se ve',
+    'Copia el código que aparece',
+    'Resume esta diapositiva o gráfico',
+  ];
+
   const CHAT_SUGGESTIONS = [
     '¿De qué trata este video?',
     '¿Cuáles son las conclusiones principales?',
@@ -260,7 +268,7 @@ Reglas:
 - Usa Markdown bien estructurado.
 - Cuando hagas referencia a un momento del video usa marcas de tiempo entre corchetes, por ejemplo [02:15] o [1:02:15]; así el usuario puede hacer clic para saltar a ese momento.
 - La transcripción puede venir de subtítulos automáticos con errores de reconocimiento: interprétala con sentido común.
-${chat ? '- Estás conversando con el usuario sobre este video: responde de forma directa y concisa a cada pregunta.\n' : ''}
+${chat ? '- Estás conversando con el usuario sobre este video: responde de forma directa y concisa a cada pregunta.\n- Si el usuario adjunta una captura de la pantalla del video, analiza la imagen (texto, código, diapositivas, gráficos, lo que se ve) junto con lo que se dice en ese momento. Si te pide el texto o el código, transcríbelo tal cual, con el código en un bloque de código.\n' : ''}
 ${condensed
     ? `El video es muy largo, así que a continuación tienes notas condensadas y cronológicas de toda la transcripción (con marcas de tiempo):\n<notas>\n${transcriptText}\n</notas>`
     : `Transcripción (cada línea empieza con su marca de tiempo):\n<transcripcion>\n${transcriptText}\n</transcripcion>`}`;
@@ -271,7 +279,7 @@ ${condensed
   }
 
   root.SubmePrompts = {
-    LANGUAGES, ACTIONS, MODES, CHAT_SUGGESTIONS, languageName, buildSystemPrompt, buildChunkNotesPrompt,
+    LANGUAGES, ACTIONS, MODES, CHAT_SUGGESTIONS, SCREEN_SUGGESTIONS, languageName, buildSystemPrompt, buildChunkNotesPrompt,
     explainMomentPrompt, translateLinesPrompt, buildLibrarySystemPrompt,
   };
 })(globalThis);

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "__MSG_extName__",
   "short_name": "__MSG_extShortName__",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "__MSG_extDescription__",
   "default_locale": "es",
   "homepage_url": "https://github.com/diegoparras/Subme-Now",
@@ -67,6 +67,7 @@
         "src/content/windows.js",
         "src/content/combo.js",
         "src/content/live.js",
+        "src/content/capture.js",
         "src/content/panel.js",
         "src/content/main.js"
       ],
@@ -107,6 +108,9 @@
         "default": "Alt+Shift+K"
       },
       "description": "__MSG_cmdChat__"
+    },
+    "read-screen": {
+      "description": "__MSG_cmdScreen__"
     }
   }
 }

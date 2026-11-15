@@ -102,9 +102,24 @@
     };
   }
 
+  /** "data:image/jpeg;base64,AAA" → { mime, data } */
+  const splitDataUrl = (url) => {
+    const m = /^data:([^;,]+);base64,(.*)$/.exec(String(url || ''));
+    return m ? { mime: m[1], data: m[2] } : null;
+  };
+
+  /** Contenido de un mensaje con imágenes (fotogramas del video) en el formato de cada proveedor. */
+  function messageContent(cfg, m) {
+    const images = (m.images || []).map(splitDataUrl).filter(Boolean);
+    if (!images.length || m.role !== 'user') return cfg.type === 'gemini' ? [{ text: m.content }] : m.content;
+    if (cfg.type === 'anthropic') return [...images.map((i) => ({ type: 'image', source: { type: 'base64', media_type: i.mime, data: i.data } })), { type: 'text', text: m.content }];
+    if (cfg.type === 'gemini') return [...images.map((i) => ({ inline_data: { mime_type: i.mime, data: i.data } })), { text: m.content }];
+    return [{ type: 'text', text: m.content }, ...images.map((i) => ({ type: 'image_url', image_url: { url: `data:${i.mime};base64,${i.data}` } }))];
+  }
+
   /**
    * Construye la petición de chat en streaming.
-   * messages: [{role: 'user'|'assistant', content: string}]
+   * messages: [{role: 'user'|'assistant', content: string, images?: [dataUrl]}]
    */
   function buildChatRequest(cfg, { system, messages }) {
     if (cfg.type === 'anthropic') {
@@ -114,7 +129,7 @@
         max_tokens: cfg.maxOutputTokens,
         // La transcripción va en el system prompt: se cachea para que el chat y las acciones siguientes sean más baratos.
         system: system ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }] : undefined,
-        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        messages: messages.map((m) => ({ role: m.role, content: messageContent(cfg, m) })),
         stream: true,
       };
       if (ANTHROPIC_FALLBACK_MODELS.test(cfg.model)) {
@@ -127,7 +142,7 @@
     if (cfg.type === 'gemini') {
       const body = {
         systemInstruction: system ? { parts: [{ text: system }] } : undefined,
-        contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+        contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: messageContent(cfg, m) })),
         generationConfig: { maxOutputTokens: cfg.maxOutputTokens },
       };
       const model = cfg.model.replace(/^models\//, '');
@@ -144,7 +159,7 @@
     // OpenAI y compatibles (OpenRouter, Grok, personalizado)
     const body = {
       model: cfg.model,
-      messages: [...(system ? [{ role: 'system', content: system }] : []), ...messages],
+      messages: [...(system ? [{ role: 'system', content: system }] : []), ...messages.map((m) => ({ role: m.role, content: messageContent(cfg, m) }))],
       stream: true,
     };
     return { url: `${cfg.baseUrl}/chat/completions`, init: { method: 'POST', headers: authHeadersOpenAI(cfg), body: JSON.stringify(body) } };

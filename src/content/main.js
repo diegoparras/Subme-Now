@@ -55,6 +55,7 @@
     const T = SN.transcript;
     if (msg.fn === 'whoami') return currentVideo();
     if (msg.fn === 'getVideoInfo') return T.getVideoInfo(String(msg.args[0]));
+    if (msg.fn === 'captureFrame') return panel ? panel.captureFrame() : SN.capture.frame(document.querySelector('video.html5-main-video, #shorts-player video, video'));
     if (msg.fn === 'loadTranscript') return T.loadTranscript(await T.getVideoInfo(String(msg.args[0])), msg.args[1] || null, msg.args[2] || {});
     throw new Error('Pedido desconocido');
   }

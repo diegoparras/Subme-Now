@@ -92,7 +92,7 @@
       } else {
         sugg.innerHTML = '';
         log.innerHTML = msgs.map((m) => (m.role === 'user'
-          ? `<div class="sn-msg user">${U.escapeHtml(m.content)}</div>`
+          ? `<div class="sn-msg user">${m.image ? `<img class="sn-msg-img" src="${U.escapeHtml(m.image)}" alt="Captura">` : ''}${U.escapeHtml(m.content)}</div>`
           : `<div class="sn-msg assistant md">${m.error && typeof m.error === 'string' ? `<div class="sn-error">${I('alert')} ${U.escapeHtml(m.error)}</div>` : SubmeMarkdown.render(m.content) || '<div class="sn-progress"><span class="sn-spinner"></span>Pensando…</div>'}</div>`)).join('');
       }
       log.scrollTop = log.scrollHeight;
